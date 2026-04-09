@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Games for Fun</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: #0a0a1a;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #e0e0f0;
+    overflow-x: hidden;
+  }
+
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(100, 120, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(100, 120, 255, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .glow-orb {
+    position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0;
+  }
+  .glow-orb.a { width: 500px; height: 500px; background: rgba(99, 102, 241, 0.12); top: -100px; left: -100px; }
+  .glow-orb.b { width: 400px; height: 400px; background: rgba(236, 72, 153, 0.08); bottom: -50px; right: -50px; }
+  .glow-orb.c { width: 350px; height: 350px; background: rgba(34, 211, 238, 0.06); top: 40%; left: 60%; }
+
+  header {
+    position: relative; z-index: 1;
+    text-align: center;
+    padding: 60px 20px 20px;
+  }
+
+  header h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    background: linear-gradient(135deg, #818cf8, #c084fc, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+  }
+
+  header p {
+    margin-top: 10px;
+    color: #8888aa;
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+  }
+
+  .grid {
+    position: relative; z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+    max-width: 1100px;
+    margin: 40px auto 80px;
+    padding: 0 24px;
+  }
+
+  .card {
+    position: relative;
+    background: rgba(20, 20, 40, 0.7);
+    border: 1px solid rgba(100, 120, 255, 0.08);
+    border-radius: 16px;
+    padding: 28px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: transform 0.25s, border-color 0.3s, box-shadow 0.3s;
+    backdrop-filter: blur(8px);
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, transparent 40%, rgba(99, 102, 241, 0.04));
+    pointer-events: none;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(129, 140, 248, 0.25);
+    box-shadow: 0 12px 40px rgba(99, 102, 241, 0.1), 0 0 0 1px rgba(129, 140, 248, 0.1);
+  }
+
+  .card-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .card h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #f0f0ff;
+  }
+
+  .card .genre {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    width: fit-content;
+  }
+
+  .card p.desc {
+    font-size: 0.88rem;
+    color: #9999bb;
+    line-height: 1.5;
+    flex: 1;
+  }
+
+  .play-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    transition: filter 0.2s, transform 0.15s;
+    text-decoration: none;
+    margin-top: auto;
+  }
+
+  .play-btn:hover { filter: brightness(1.15); transform: scale(1.02); }
+  .play-btn:active { transform: scale(0.98); }
+
+  .play-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+  footer {
+    position: relative; z-index: 1;
+    text-align: center;
+    padding: 30px 20px 40px;
+    color: #555570;
+    font-size: 0.82rem;
+    letter-spacing: 0.03em;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="glow-orb a"></div>
+<div class="glow-orb b"></div>
+<div class="glow-orb c"></div>
+
+<header>
+  <h1>Games for Fun</h1>
+  <p>Pick a game and play</p>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<footer>Built with Cursor</footer>
+
+<script>
+const games = [
+  {
+    title: 'Flip Master 3-D',
+    desc: 'Hill-climb flip-trick racing with upgradeable vehicles, stunts, and leaderboards.',
+    genre: 'Racing',
+    icon: '\u{1F3CE}',
+    color: '#6366f1',
+    url: '/games/hill-climb-race/index.html',
+  },
+  {
+    title: 'Neon Dash',
+    desc: 'Geometry Dash-style rhythm platformer with a built-in level editor.',
+    genre: 'Platformer',
+    icon: '\u{1F7E9}',
+    color: '#22d3ee',
+    url: '/games/geometry-dash/index.html',
+  },
+  {
+    title: 'Vice Town',
+    desc: 'Open-world crime sandbox with missions, vehicles, combat, and police chases.',
+    genre: 'Action',
+    icon: '\u{1F52B}',
+    color: '#ef4444',
+    url: '/games/gta/index.html',
+  },
+  {
+    title: 'Annex B \u2014 Escape Room',
+    desc: 'First-person puzzle escape through Eastport City Hall during a storm lockdown.',
+    genre: 'Puzzle',
+    icon: '\u{1F510}',
+    color: '#6a9aba',
+    url: '/games/annex-escape-room/index.html',
+  },
+  {
+    title: 'Plaything Factory',
+    desc: 'First-person horror exploration through an abandoned toy factory.',
+    genre: 'Horror',
+    icon: '\u{1F9F8}',
+    color: '#c44',
+    url: '/games/plaything-factory/index.html',
+  },
+  {
+    title: 'Polytrack',
+    desc: '3D low-poly racing on procedural tracks.',
+    genre: 'Racing',
+    icon: '\u{1F3C1}',
+    color: '#f59e0b',
+    url: '/games/polytrack',
+  },
+  {
+    title: 'Minecraft Web',
+    desc: 'Voxel sandbox with block building, mobs, procedural terrain, and optional multiplayer.',
+    genre: 'Sandbox',
+    icon: '\u{26CF}',
+    color: '#22c55e',
+    url: 'http://localhost:5173',
+  },
+];
+
+const playSvg = `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+
+const grid = document.getElementById('grid');
+
+for (const g of games) {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  card.innerHTML = `
+    <div class="card-icon" style="background:${g.color}22">${g.icon}</div>
+    <span class="genre" style="background:${g.color}18;color:${g.color}">${g.genre}</span>
+    <h2>${g.title}</h2>
+    <p class="desc">${g.desc}</p>
+    <a class="play-btn" href="${g.url}" style="background:${g.color}" target="${g.url.startsWith('http') ? '_blank' : '_self'}">
+      ${playSvg} Play
+    </a>
+  `;
+
+  grid.appendChild(card);
+}
+</script>
+</body>
+</html>

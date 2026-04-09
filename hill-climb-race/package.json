@@ -1,0 +1,15 @@
+{
+  "name": "flip-master-3d",
+  "version": "1.0.0",
+  "description": "Flip Master 3-D - hill-climbing flip-trick racing game with leaderboard and cloud saves",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "pg": "^8.13.0",
+    "cors": "^2.8.5"
+  }
+}

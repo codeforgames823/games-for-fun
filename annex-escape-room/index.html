@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Annex B — Eastport City Hall</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#030508;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;user-select:none}
+canvas{display:block}
+#blocker{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(5,8,14,0.92);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:opacity 0.5s}
+#blocker.hidden{opacity:0;pointer-events:none}
+#blocker h1{color:#6a9aba;font-size:2.2em;letter-spacing:.2em;text-transform:uppercase;text-shadow:0 0 20px rgba(106,154,186,.4)}
+#blocker .sub{color:#5a6570;font-size:.95em;margin-top:16px;max-width:420px;text-align:center;line-height:1.5}
+#blocker .click{color:#8a9aa8;font-size:.9em;margin-top:36px;letter-spacing:.1em}
+#hud{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50}
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:51;pointer-events:none}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(180,200,220,.35)}
+#crosshair::before{width:14px;height:1px;top:0;left:-7px}
+#crosshair::after{width:1px;height:14px;top:-7px;left:0}
+#room-label{position:fixed;top:20px;left:20px;z-index:51;pointer-events:none}
+#room-label .name{color:#8aa8bc;font-size:.85em;letter-spacing:.12em;opacity:.85}
+#room-label .obj{color:#6a7a88;font-size:.72em;margin-top:6px;opacity:.75}
+#interact-prompt{position:fixed;bottom:120px;left:50%;transform:translateX(-50%);color:#aab8c8;font-size:.8em;letter-spacing:.08em;z-index:51;pointer-events:none;opacity:0;transition:opacity .3s;text-shadow:0 0 12px rgba(0,0,0,.9)}
+#dialogue-box{position:fixed;bottom:130px;left:50%;transform:translateX(-50%);max-width:520px;width:88%;background:rgba(12,16,22,.94);border:1px solid #2a3544;padding:16px 20px;color:#b8c8d8;font-size:.82em;line-height:1.55;z-index:55;display:none}
+#battery-hud{position:fixed;top:20px;right:20px;z-index:51;pointer-events:none}
+#battery-bar{width:44px;height:14px;border:1px solid #4a5560;position:relative;display:inline-block;vertical-align:middle;border-radius:2px}
+#battery-bar::after{content:'';position:absolute;right:-3px;top:2px;width:2px;height:10px;border:1px solid #4a5560}
+#battery-fill{height:100%;background:#4a8a6a;transition:width .3s;border-radius:1px}
+#battery-label{color:rgba(140,160,180,.5);font-size:9px;display:block;text-align:center;margin-top:4px}
+#inventory-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:51;pointer-events:none}
+.inv-slot{width:54px;height:54px;border:1px solid rgba(80,100,120,.35);background:rgba(8,12,18,.85);display:flex;align-items:center;justify-content:center;font-size:1.4em;position:relative;border-radius:4px}
+.inv-slot.active{border-color:#6a9aba;box-shadow:0 0 10px rgba(106,154,186,.25)}
+.inv-slot .lbl{position:absolute;bottom:-15px;font-size:.42em;color:#5a6570;white-space:nowrap}
+#puzzle-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.88);z-index:100;display:none;align-items:center;justify-content:center}
+#puzzle-container{position:relative;background:#121820;border:2px solid #2a3848;padding:28px;max-width:560px;width:92%;pointer-events:all;border-radius:6px}
+#puzzle-title{color:#6a9aba;font-size:1.1em;letter-spacing:.12em;margin-bottom:18px;text-transform:uppercase;text-align:center}
+#puzzle-content{color:#aab8c8;min-height:180px}
+#puzzle-close{position:absolute;top:8px;right:12px;color:#5a6570;font-size:1.4em;cursor:pointer;pointer-events:all}
+#puzzle-close:hover{color:#8aa8bc}
+#vignette{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:59;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.38) 100%)}
+</style>
+</head>
+<body>
+<div id="blocker">
+  <h1>Annex B</h1>
+  <div class="sub">Eastport City Hall — records &amp; cold storage. A storm tripped the lockdown. Find your way to the service stairwell.</div>
+  <div class="click">Click to begin · Move mouse to look · WASD move · E interact · F toggles lamp if too dark</div>
+</div>
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="room-label"><div class="name" id="room-name">—</div><div class="obj" id="objective">—</div></div>
+  <div id="battery-hud"><div id="battery-bar"><div id="battery-fill" style="width:100%"></div></div><span id="battery-label">LAMP</span></div>
+  <div id="interact-prompt">[E] Interact</div>
+  <div id="dialogue-box"></div>
+  <div id="inventory-bar">
+    <div class="inv-slot active" id="inv-0"></div>
+    <div class="inv-slot" id="inv-1"></div>
+    <div class="inv-slot" id="inv-2"></div>
+    <div class="inv-slot" id="inv-3"></div>
+    <div class="inv-slot" id="inv-4"></div>
+  </div>
+</div>
+<div id="puzzle-overlay"><div id="puzzle-container"><div id="puzzle-close">&times;</div><div id="puzzle-title"></div><div id="puzzle-content"></div></div></div>
+<div id="vignette"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.162.0",
+    "three/addons/": "https://esm.sh/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a1018);
+scene.fog = new THREE.FogExp2(0x0a1018, 0.009);
+
+scene.add(new THREE.HemisphereLight(0xa8b8c8, 0x1a222c, 0.72));
+scene.add(new THREE.AmbientLight(0x5a6a78, 0.45));
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 1.7, 0);
+
+const controls = new PointerLockControls(camera, document.body);
+const clock = new THREE.Clock();
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.18, 0.5, 0.9);
+composer.addPass(bloomPass);
+
+const filmGrainShader = {
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, intensity: { value: 0.04 }, vignetteStrength: { value: 0.32 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float time; uniform float intensity; uniform float vignetteStrength;
+    varying vec2 vUv;
+    float rand(vec2 co){ return fract(sin(dot(co,vec2(12.9898,78.233)))*43758.5453); }
+    void main(){
+      vec4 color=texture2D(tDiffuse,vUv);
+      float grain=rand(vUv*time)*intensity;
+      color.rgb+=grain-intensity*0.5;
+      float dist=distance(vUv,vec2(0.5));
+      color.rgb*=1.0-dist*vignetteStrength*1.2;
+      gl_FragColor=color;
+    }`
+};
+const grainPass = new ShaderPass(filmGrainShader);
+composer.addPass(grainPass);
+const fxaaPass = new ShaderPass(FXAAShader);
+fxaaPass.uniforms['resolution'].value.set(1/window.innerWidth, 1/window.innerHeight);
+composer.addPass(fxaaPass);
+
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  fxaaPass.uniforms['resolution'].value.set(1/w, 1/h);
+});
+
+let audioCtx;
+function initAudio() { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playTone(freq, dur, type='sine', vol=0.1) {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur);
+}
+function playNoise(dur, vol=0.05) {
+  if (!audioCtx) return;
+  const sz = audioCtx.sampleRate * dur, buf = audioCtx.createBuffer(1, sz, audioCtx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < sz; i++) d[i] = Math.random() * 2 - 1;
+  const s = audioCtx.createBufferSource(); s.buffer = buf;
+  const g = audioCtx.createGain(); g.gain.setValueAtTime(vol, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  s.connect(g); g.connect(audioCtx.destination); s.start();
+}
+function playFootstep() { playNoise(0.06, 0.04); playTone(70 + Math.random() * 30, 0.08, 'triangle', 0.035); }
+function playInteract() { playTone(420, 0.12, 'sine', 0.07); setTimeout(() => playTone(620, 0.08, 'sine', 0.05), 70); }
+function playPuzzleSolve() { [440,554,659,880].forEach((f,i) => setTimeout(() => playTone(f, 0.25, 'sine', 0.09), i * 110)); }
+function playError() { playTone(180, 0.28, 'sawtooth', 0.07); }
+function playDoorOpen() { for (let i = 0; i < 4; i++) setTimeout(() => playNoise(0.08, 0.035), i * 55); playTone(90, 0.45, 'triangle', 0.04); }
+function playSlam() {
+  playNoise(0.15, 0.12);
+  playTone(55, 0.5, 'sawtooth', 0.1);
+  setTimeout(() => playNoise(0.2, 0.06), 80);
+}
+
+function makeCanvasTex(w, h, drawFn) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  drawFn(x, w, h);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+const TEX = {};
+TEX.concrete = makeCanvasTex(512, 512, (x, w, h) => {
+  x.fillStyle = '#252a30'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 7000; i++) {
+    const bri = 32 + Math.random() * 22;
+    x.fillStyle = `rgba(${bri},${bri+2},${bri+4},0.35)`;
+    x.fillRect(Math.random()*w, Math.random()*h, 1+Math.random()*3, 1+Math.random()*2);
+  }
+});
+TEX.concrete.repeat.set(4, 4);
+
+TEX.concreteDark = makeCanvasTex(512, 512, (x, w, h) => {
+  x.fillStyle = '#14181c'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 5000; i++) {
+    const bri = 20 + Math.random() * 15;
+    x.fillStyle = `rgba(${bri},${bri+2},${bri+4},0.3)`;
+    x.fillRect(Math.random()*w, Math.random()*h, 1+Math.random()*3, 1);
+  }
+});
+TEX.concreteDark.repeat.set(3, 3);
+
+TEX.brick = makeCanvasTex(512, 512, (x, w, h) => {
+  x.fillStyle = '#2d3238'; x.fillRect(0, 0, w, h);
+  const bw = 64, bh = 32, gap = 3;
+  for (let row = 0; row < h / bh; row++) {
+    const off = (row % 2) * bw / 2;
+    for (let col = -1; col < w / bw + 1; col++) {
+      const bx = col * bw + off, by = row * bh;
+      const r = 42 + Math.random() * 25, g = 46 + Math.random() * 22, b = 52 + Math.random() * 20;
+      x.fillStyle = `rgb(${r},${g},${b})`;
+      x.fillRect(bx + gap/2, by + gap/2, bw - gap, bh - gap);
+    }
+  }
+});
+TEX.brick.repeat.set(2, 2);
+
+TEX.tile = makeCanvasTex(512, 512, (x, w, h) => {
+  x.fillStyle = '#283038'; x.fillRect(0, 0, w, h);
+  const ts = 64;
+  for (let tx = 0; tx < w; tx += ts) {
+    for (let ty = 0; ty < h; ty += ts) {
+      const alt = ((tx/ts + ty/ts) % 2 === 0);
+      x.fillStyle = alt ? '#242c34' : '#2c343c';
+      x.fillRect(tx+1, ty+1, ts-2, ts-2);
+    }
+  }
+});
+TEX.tile.repeat.set(3, 3);
+
+TEX.wood = makeCanvasTex(256, 256, (x, w, h) => {
+  x.fillStyle = '#3a3530'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 35; i++) {
+    x.strokeStyle = `rgba(55,50,45,${0.08+Math.random()*0.12})`;
+    x.lineWidth = 1 + Math.random();
+    const y = Math.random() * h;
+    x.beginPath(); x.moveTo(0, y); x.lineTo(w, y + (Math.random()-0.5)*8); x.stroke();
+  }
+});
+
+TEX.directory = makeCanvasTex(320, 200, (x, w, h) => {
+  x.fillStyle = '#c8d0d8'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#1a2228'; x.font = 'bold 18px Segoe UI'; x.textAlign = 'center';
+  x.fillText('EASTPORT CITY HALL', w/2, 32);
+  x.font = '14px Segoe UI';
+  x.fillText('Annex B — Municipal Block 59', w/2, 58);
+  x.strokeStyle = '#2a3848'; x.strokeRect(8, 8, w-16, h-16);
+  x.fillStyle = '#3a4858'; x.font = '11px monospace';
+  x.fillText('Cold storage · Records intake', w/2, 100);
+});
+
+TEX.manifest = makeCanvasTex(384, 256, (x, w, h) => {
+  x.fillStyle = '#e8ecf0'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#1a2228'; x.font = 'bold 14px Segoe UI';
+  x.fillText('COLD CHAIN MANIFEST — Priority pull order', 12, 28);
+  x.font = '12px monospace'; x.fillStyle = '#2a3848';
+  x.fillText('1. B-14  (vaccine archive)', 16, 52);
+  x.fillText('2. A-03  (deeds microfilm)', 16, 72);
+  x.fillText('3. C-22  (legacy tapes)', 16, 92);
+  x.fillStyle = '#4a6080'; x.font = '11px monospace';
+  x.fillText('Lane header: 27-B priority', 16, 130);
+});
+
+TEX.schematic = makeCanvasTex(280, 180, (x, w, h) => {
+  x.fillStyle = '#d0d8e0'; x.fillRect(0, 0, w, h);
+  x.strokeStyle = '#1a2838'; x.lineWidth = 2;
+  x.beginPath(); x.moveTo(20, 90); x.lineTo(120, 90); x.lineTo(120, 40); x.lineTo(200, 40); x.lineTo(200, 130); x.lineTo(260, 130); x.stroke();
+  x.fillStyle = '#1a2838'; x.font = '10px monospace';
+  x.fillText('AUX FEED 27', 168, 35);
+  x.fillText('Card ref: 27', 12, 170);
+});
+
+function makeNormalFromHeight(tex, strength=2) {
+  const c = tex.image, w = c.width, h = c.height;
+  const nc = document.createElement('canvas');
+  nc.width = w; nc.height = h;
+  const sx = c.getContext('2d'), nx = nc.getContext('2d');
+  const src = sx.getImageData(0, 0, w, h).data;
+  const dst = nx.createImageData(w, h);
+  for (let y = 0; y < h; y++) {
+    for (let xx = 0; xx < w; xx++) {
+      const idx = (y*w+xx)*4;
+      const l = src[(y*w+Math.max(0,xx-1))*4]/255;
+      const r = src[(y*w+Math.min(w-1,xx+1))*4]/255;
+      const u = src[(Math.max(0,y-1)*w+xx)*4]/255;
+      const d = src[(Math.min(h-1,y+1)*w+xx)*4]/255;
+      dst.data[idx]   = ((l-r)*strength*0.5+0.5)*255;
+      dst.data[idx+1] = ((u-d)*strength*0.5+0.5)*255;
+      dst.data[idx+2] = 255;
+      dst.data[idx+3] = 255;
+    }
+  }
+  nx.putImageData(dst, 0, 0);
+  const nt = new THREE.CanvasTexture(nc);
+  nt.wrapS = nt.wrapT = THREE.RepeatWrapping;
+  nt.repeat.copy(tex.repeat);
+  return nt;
+}
+
+const NORM = {
+  concrete: makeNormalFromHeight(TEX.concrete, 2.5),
+  brick: makeNormalFromHeight(TEX.brick, 3),
+  tile: makeNormalFromHeight(TEX.tile, 2),
+};
+
+const MAT = {
+  concrete: new THREE.MeshStandardMaterial({ map: TEX.concrete, normalMap: NORM.concrete, roughness: 0.9, metalness: 0.06 }),
+  concreteDark: new THREE.MeshStandardMaterial({ map: TEX.concreteDark, roughness: 0.95, metalness: 0.03 }),
+  brick: new THREE.MeshStandardMaterial({ map: TEX.brick, normalMap: NORM.brick, roughness: 0.88, metalness: 0.05 }),
+  tile: new THREE.MeshStandardMaterial({ map: TEX.tile, normalMap: NORM.tile, roughness: 0.72, metalness: 0.08 }),
+  wood: new THREE.MeshStandardMaterial({ map: TEX.wood, roughness: 0.85, metalness: 0.04 }),
+  metal: new THREE.MeshStandardMaterial({ color: 0x3a4550, roughness: 0.55, metalness: 0.65 }),
+  darkMetal: new THREE.MeshStandardMaterial({ color: 0x222830, roughness: 0.65, metalness: 0.55 }),
+  rust: new THREE.MeshStandardMaterial({ color: 0x4a4038, roughness: 0.82, metalness: 0.25 }),
+  greenExit: new THREE.MeshStandardMaterial({ color: 0x22aa66, emissive: 0x114422, emissiveIntensity: 0.8 }),
+};
+
+const GS = {
+  started: false, paused: false, time: 0,
+  velocity: new THREE.Vector3(),
+  moveForward: false, moveBackward: false, moveLeft: false, moveRight: false,
+  isSprinting: false,
+  currentRoom: 0,
+  inventory: [null,null,null,null,null], selectedSlot: 0,
+  puzzlesSolved: new Set(), doorsUnlocked: new Set(), itemsCollected: new Set(), notesRead: new Set(),
+  flashlight: { on: true, battery: 100 },
+  nearInteractable: null,
+  dialogue: { active: false, text: '', charIndex: 0, timer: 0, fullText: '', callback: null },
+  puzzleActive: false, currentPuzzle: null,
+  footstepTimer: 0,
+  roomGroups: [], interactables3D: [], doors3D: [],
+  flickerLights: [], corridorLights: [],
+  slamPlayed: false,
+};
+
+const flashlight = new THREE.SpotLight(0xf2f6ff, 5.2, 28, Math.PI * 0.32, 0.5, 1.2);
+flashlight.castShadow = true;
+flashlight.shadow.mapSize.set(1024, 1024);
+flashlight.shadow.camera.near = 0.1;
+flashlight.shadow.camera.far = 22;
+flashlight.shadow.bias = -0.002;
+const flTarget = new THREE.Object3D();
+scene.add(flTarget);
+flashlight.target = flTarget;
+camera.add(flashlight);
+flashlight.position.set(0.28, -0.12, -0.28);
+scene.add(camera);
+
+function makeBox(w, h, d, mat, pos, castShadow=true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.copy(pos);
+  m.castShadow = castShadow;
+  m.receiveShadow = true;
+  return m;
+}
+
+function makeCylinder(rT, rB, h, mat, pos, segs=16) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rT, rB, h, segs), mat);
+  m.position.copy(pos);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+function makeDesk(pos) {
+  const g = new THREE.Group();
+  g.add(makeBox(1.5, 0.05, 0.75, MAT.wood, new THREE.Vector3(0, 0.74, 0)));
+  [[-0.7,0.35,-0.28],[0.7,0.35,-0.28],[-0.7,0.35,0.28],[0.7,0.35,0.28]].forEach(([a,b,c]) =>
+    g.add(makeBox(0.05, 0.7, 0.05, MAT.wood, new THREE.Vector3(a, b, c))));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeChair(pos) {
+  const g = new THREE.Group();
+  const cm = new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.9 });
+  g.add(makeBox(0.42, 0.04, 0.42, cm, new THREE.Vector3(0, 0.44, 0)));
+  g.add(makeBox(0.42, 0.48, 0.04, cm, new THREE.Vector3(0, 0.68, -0.19)));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeCabinet(pos) {
+  const g = new THREE.Group();
+  const cm = new THREE.MeshStandardMaterial({ color: 0x353a42, roughness: 0.88 });
+  g.add(makeBox(0.65, 2.1, 0.42, cm, new THREE.Vector3(0, 1.05, 0)));
+  g.add(makeBox(0.04, 0.04, 0.04, MAT.metal, new THREE.Vector3(0, 1.4, 0.22)));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeCrate(pos, size=1) {
+  const g = new THREE.Group();
+  const s = 0.48 * size;
+  g.add(makeBox(s, s, s, MAT.wood, new THREE.Vector3(0, s/2, 0)));
+  g.add(makeBox(s+0.02, 0.04, 0.04, MAT.darkMetal, new THREE.Vector3(0, s-0.02, s/2-0.02)));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeShelf(pos) {
+  const g = new THREE.Group();
+  g.add(makeBox(1.1, 0.04, 0.45, MAT.wood, new THREE.Vector3(0, 0.02, 0)));
+  for (const sx of [-0.52, 0.52]) {
+    g.add(makeBox(0.04, 2.4, 0.04, MAT.metal, new THREE.Vector3(sx, 1.2, -0.2)));
+    g.add(makeBox(0.04, 2.4, 0.04, MAT.metal, new THREE.Vector3(sx, 1.2, 0.2)));
+  }
+  for (let sh = 0.55; sh < 2.3; sh += 0.65) {
+    g.add(makeBox(1.06, 0.03, 0.42, MAT.wood, new THREE.Vector3(0, sh, 0)));
+  }
+  g.position.copy(pos);
+  return g;
+}
+
+function makePoster3D(pos, tex, rot=0) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.55), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+  m.position.copy(pos);
+  m.rotation.y = rot;
+  return m;
+}
+
+function makeDoorFrame(pos, rot=0, color=0x3a4248) {
+  const g = new THREE.Group();
+  const dm = new THREE.MeshStandardMaterial({ color, roughness: 0.72, metalness: 0.35 });
+  g.add(makeBox(0.1, 2.4, 0.28, dm, new THREE.Vector3(-0.52, 1.2, 0)));
+  g.add(makeBox(0.1, 2.4, 0.28, dm, new THREE.Vector3(0.52, 1.2, 0)));
+  g.add(makeBox(1.14, 0.1, 0.28, dm, new THREE.Vector3(0, 2.4, 0)));
+  const door = makeBox(0.95, 2.25, 0.07, dm, new THREE.Vector3(0, 1.125, 0));
+  g.add(door);
+  g.add(makeCylinder(0.022, 0.022, 0.04, MAT.metal, new THREE.Vector3(0.32, 1.0, 0.05), 8));
+  g.position.copy(pos);
+  g.rotation.y = rot;
+  g.userData.doorMesh = door;
+  return g;
+}
+
+function addLight(pos, color=0xa8c0d8, intensity=0.85, dist=9, flicker=true, storeCorridor=false, startDim=1) {
+  const pl = new THREE.PointLight(color, intensity * startDim, dist);
+  pl.position.copy(pos);
+  pl.castShadow = true;
+  pl.shadow.mapSize.set(512, 512);
+  pl.shadow.bias = -0.003;
+  scene.add(pl);
+  if (flicker) GS.flickerLights.push({ light: pl, base: intensity * startDim, speed: 1.8+Math.random()*2, offset: Math.random()*8 });
+  if (storeCorridor) GS.corridorLights.push({ light: pl, bright: intensity, dim: Math.max(0.28, intensity * 0.38) });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.6 * startDim }));
+  bulb.position.copy(pos);
+  scene.add(bulb);
+  return pl;
+}
+
+function setCorridorPowered(on) {
+  GS.corridorLights.forEach(({ light, bright, dim }) => {
+    light.intensity = on ? bright : dim;
+    const idx = GS.flickerLights.findIndex(f => f.light === light);
+    if (idx >= 0) GS.flickerLights[idx].base = on ? bright : dim;
+  });
+}
+
+function buildRoom(idx, rw, rd, floorMat, wallMat, ceilMat) {
+  const g = new THREE.Group();
+  g.userData.roomIndex = idx;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(rw, rd), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  g.add(floor);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(rw, rd), ceilMat || MAT.concreteDark);
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.y = 3.2;
+  ceil.receiveShadow = true;
+  g.add(ceil);
+  const wallH = 3.2;
+  const addWall = (w, h, pos, rotY=0) => {
+    const wm = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
+    wm.position.copy(pos);
+    wm.rotation.y = rotY;
+    wm.receiveShadow = true;
+    g.add(wm);
+  };
+  addWall(rw, wallH, new THREE.Vector3(0, wallH/2, -rd/2), 0);
+  addWall(rw, wallH, new THREE.Vector3(0, wallH/2, rd/2), Math.PI);
+  addWall(rd, wallH, new THREE.Vector3(-rw/2, wallH/2, 0), Math.PI/2);
+  addWall(rd, wallH, new THREE.Vector3(rw/2, wallH/2, 0), -Math.PI/2);
+  return g;
+}
+
+const ROOM_OFFSETS = [
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(22, 0, 0),
+  new THREE.Vector3(46, 0, 0),
+  new THREE.Vector3(70, 0, 0),
+];
+
+const ROOM_BOUNDS = [
+  { w: 10, d: 6 }, { w: 14, d: 8 }, { w: 16, d: 8 }, { w: 12, d: 8 },
+];
+
+const ROOM_DEFS = [
+  { name: 'ANNEX B — INTAKE LOBBY', objective: 'Open the inner door to the electrical bay', spawnX: 0, spawnZ: 0 },
+  { name: 'ELECTRICAL & SCHEMATICS', objective: 'Restore power to the storage corridor', spawnX: -5, spawnZ: 0 },
+  { name: 'COLD STORAGE CORRIDOR', objective: 'Complete the manifest pull — get the vault fob', spawnX: -6, spawnZ: 0 },
+  { name: 'VAULT ANTECHAMBER', objective: 'Enter the service PIN and reach the stairwell', spawnX: -4, spawnZ: 0 },
+];
+
+function buildAllRooms() {
+  const O = ROOM_OFFSETS;
+
+  const r0 = buildRoom(0, 10, 6, MAT.tile, MAT.brick, MAT.concreteDark);
+  r0.position.copy(O[0]);
+  r0.add(makeDesk(new THREE.Vector3(-2.2, 0, 0.5)));
+  r0.add(makeChair(new THREE.Vector3(-2.2, 0, 1.1)));
+  r0.add(makeCabinet(new THREE.Vector3(-4.2, 0, -2)));
+  r0.add(makePoster3D(new THREE.Vector3(-3.2, 1.65, -2.98), TEX.directory));
+  r0.add(makeCrate(new THREE.Vector3(3.2, 0, 1.8), 0.9));
+  r0.add(makeCrate(new THREE.Vector3(3.8, 0, -1.5), 1));
+  addLight(O[0].clone().add(new THREE.Vector3(-1, 2.8, 0)), 0xb8d0e8, 0.78, 10, true);
+  addLight(O[0].clone().add(new THREE.Vector3(2.5, 2.8, -1)), 0xa0b8d0, 0.58, 9, true);
+  addLight(O[0].clone().add(new THREE.Vector3(0, 2.5, 0)), 0xc8d8e8, 0.35, 12, false);
+  scene.add(r0);
+  GS.roomGroups.push(r0);
+
+  GS.interactables3D.push(
+    { id: 'lobby_note', type: 'note', roomIdx: 0, pos: O[0].clone().add(new THREE.Vector3(-2, 0.78, 0.5)), radius: 1.6,
+      text: 'M. Reyes — Inner mag door: three digits from the brass plaques (left to right). Use the ones digit of each year, in chronological order of the events (oldest dedication first). The directory plate is for later — block number matters upstairs.' },
+    { id: 'lobby_plaques', type: 'examine', roomIdx: 0, pos: O[0].clone().add(new THREE.Vector3(4.2, 1.4, -2.95)), radius: 2,
+      text: 'Three brass plaques (left to right): "Eastport City Hall founded 1987" · "Annex B dedicated 2004" · "HVAC replacement 1997".' },
+    { id: 'lobby_combo', type: 'puzzle', roomIdx: 0, pos: O[0].clone().add(new THREE.Vector3(4.5, 1.15, 0)), radius: 2.2,
+      puzzleType: 'combo', label: 'Keypad', solution: '747', digits: 3 },
+  );
+
+  GS.doors3D.push({
+    id: 'door_electrical', roomIdx: 0, pos: O[0].clone().add(new THREE.Vector3(4.95, 0, 0)),
+    targetRoom: 1, targetPos: new THREE.Vector3(22 - 5, 1.7, 0), locked: true, requires: 'puzzle:lobby_combo',
+    frame: makeDoorFrame(O[0].clone().add(new THREE.Vector3(4.95, 0, 0)), -Math.PI/2),
+  });
+  scene.add(GS.doors3D[0].frame);
+
+  const r1 = buildRoom(1, 14, 8, MAT.concrete, MAT.brick, MAT.concreteDark);
+  r1.position.copy(O[1]);
+  r1.add(makeBox(2.2, 2.4, 0.8, MAT.rust, new THREE.Vector3(-4, 1.2, -2.5)));
+  r1.add(makeBox(1.8, 2.2, 0.7, MAT.darkMetal, new THREE.Vector3(2, 1.1, 2)));
+  r1.add(makeCylinder(0.15, 0.18, 2.8, MAT.metal, new THREE.Vector3(-1, 1.4, 3.5)));
+  r1.add(makePoster3D(new THREE.Vector3(6.4, 1.5, -3.96), TEX.schematic));
+  const breakerBox = makeBox(0.55, 0.65, 0.14, MAT.rust, new THREE.Vector3(6.25, 1.45, -3.82));
+  r1.add(breakerBox);
+  addLight(O[1].clone().add(new THREE.Vector3(-3, 2.8, 0)), 0xffc070, 0.62, 11, true);
+  addLight(O[1].clone().add(new THREE.Vector3(3, 2.8, 1)), 0xa8c0e0, 0.55, 11, true);
+  addLight(O[1].clone().add(new THREE.Vector3(0, 2.5, 0)), 0xd8e4f0, 0.32, 14, false);
+  scene.add(r1);
+  GS.roomGroups.push(r1);
+
+  GS.interactables3D.push(
+    { id: 'annex_breakers', type: 'puzzle', roomIdx: 1, pos: O[1].clone().add(new THREE.Vector3(6.25, 1.45, -3.82)), radius: 2.2,
+      puzzleType: 'wire', label: 'Aux breaker panel' },
+    { id: 'bay_note', type: 'note', roomIdx: 1, pos: O[1].clone().add(new THREE.Vector3(-2, 0.5, 2)), radius: 1.5,
+      text: 'Storm took the main bus. Match colored aux pairs on the breaker until the corridor relay closes. The schematic stamp "27" is the tail of the service PIN — first half is on the directory plate in the lobby.' },
+  );
+
+  GS.doors3D.push(
+    { id: 'door_lobby_back', roomIdx: 1, pos: O[1].clone().add(new THREE.Vector3(-6.95, 0, 0)),
+      targetRoom: 0, targetPos: new THREE.Vector3(4, 1.7, 0), locked: false,
+      frame: makeDoorFrame(O[1].clone().add(new THREE.Vector3(-6.95, 0, 0)), Math.PI/2) },
+    { id: 'door_storage', roomIdx: 1, pos: O[1].clone().add(new THREE.Vector3(6.95, 0, 0)),
+      targetRoom: 2, targetPos: new THREE.Vector3(46 - 6.5, 1.7, 0), locked: true, requires: 'puzzle:annex_breakers',
+      frame: makeDoorFrame(O[1].clone().add(new THREE.Vector3(6.95, 0, 0)), -Math.PI/2) },
+  );
+  scene.add(GS.doors3D[1].frame);
+  scene.add(GS.doors3D[2].frame);
+
+  const r2 = buildRoom(2, 16, 8, MAT.concrete, MAT.concrete, MAT.concreteDark);
+  r2.position.copy(O[2]);
+  r2.add(makeShelf(new THREE.Vector3(-6, 0, -2.5)));
+  r2.add(makeShelf(new THREE.Vector3(-3.5, 0, -2.5)));
+  r2.add(makeCrate(new THREE.Vector3(2, 0, 2), 1.1));
+  r2.add(makeCrate(new THREE.Vector3(4, 0, 1.5), 1));
+  r2.add(makeCrate(new THREE.Vector3(5.5, 0, -1), 0.85));
+  r2.add(makePoster3D(new THREE.Vector3(-7.4, 1.5, -3.96), TEX.manifest));
+  addLight(O[2].clone().add(new THREE.Vector3(-4, 2.8, 0)), 0xc8d8e8, 0.62, 12, true, true, 0.42);
+  addLight(O[2].clone().add(new THREE.Vector3(4, 2.8, 0)), 0xb0c8d8, 0.58, 12, true, true, 0.42);
+  addLight(O[2].clone().add(new THREE.Vector3(0, 2.8, -2)), 0xa8b8c8, 0.48, 10, true, true, 0.45);
+  scene.add(r2);
+  GS.roomGroups.push(r2);
+
+  GS.interactables3D.push(
+    { id: 'storage_manifest_puzzle', type: 'puzzle', roomIdx: 2, pos: O[2].clone().add(new THREE.Vector3(3.5, 0.9, 1.5)), radius: 2.5,
+      puzzleType: 'sequence', label: 'Cold crates — pull order', order: ['B-14', 'A-03', 'C-22'] },
+  );
+
+  GS.doors3D.push(
+    { id: 'door_bay_back', roomIdx: 2, pos: O[2].clone().add(new THREE.Vector3(-7.95, 0, 0)),
+      targetRoom: 1, targetPos: new THREE.Vector3(22 + 6, 1.7, 0), locked: false,
+      frame: makeDoorFrame(O[2].clone().add(new THREE.Vector3(-7.95, 0, 0)), Math.PI/2) },
+    { id: 'door_vault', roomIdx: 2, pos: O[2].clone().add(new THREE.Vector3(7.95, 0, 0)),
+      targetRoom: 3, targetPos: new THREE.Vector3(70 - 4.5, 1.7, 0), locked: true, requires: 'vault_key_fob',
+      frame: makeDoorFrame(O[2].clone().add(new THREE.Vector3(7.95, 0, 0)), -Math.PI/2, 0x454e58) },
+  );
+  scene.add(GS.doors3D[3].frame);
+  scene.add(GS.doors3D[4].frame);
+
+  const r3 = buildRoom(3, 12, 8, MAT.tile, MAT.brick, MAT.concreteDark);
+  r3.position.copy(O[3]);
+  r3.add(makeBox(2.5, 0.08, 1.2, MAT.darkMetal, new THREE.Vector3(-2, 0.9, -2)));
+  r3.add(makeBox(0.15, 1.6, 1.8, MAT.metal, new THREE.Vector3(4.5, 0.8, 0)));
+  r3.add(makeBox(1.8, 2.2, 0.12, MAT.greenExit, new THREE.Vector3(5.2, 1.1, 0)));
+  addLight(O[3].clone().add(new THREE.Vector3(-2, 2.8, 0)), 0xd0e0f0, 0.68, 10, true);
+  addLight(O[3].clone().add(new THREE.Vector3(3, 2.8, -1)), 0x88c0a0, 0.48, 9, true);
+  addLight(O[3].clone().add(new THREE.Vector3(0, 2.5, 1)), 0xe8f0f8, 0.38, 12, false);
+  scene.add(r3);
+  GS.roomGroups.push(r3);
+
+  GS.interactables3D.push(
+    { id: 'vault_keypad', type: 'puzzle', roomIdx: 3, pos: O[3].clone().add(new THREE.Vector3(-1.2, 1.25, -3.9)), radius: 2.2,
+      puzzleType: 'keypad', label: 'Service PIN pad', solution: '5927', requiresItem: 'vault_key_fob' },
+  );
+
+  GS.doors3D.push(
+    { id: 'door_corridor_back', roomIdx: 3, pos: O[3].clone().add(new THREE.Vector3(-5.95, 0, 0)),
+      targetRoom: 2, targetPos: new THREE.Vector3(46 + 6.5, 1.7, 0), locked: false,
+      frame: makeDoorFrame(O[3].clone().add(new THREE.Vector3(-5.95, 0, 0)), Math.PI/2) },
+    { id: 'door_exit', roomIdx: 3, pos: O[3].clone().add(new THREE.Vector3(5.9, 0, 0)),
+      targetRoom: -1, targetPos: null, locked: true, requires: 'puzzle:vault_keypad', isExit: true,
+      frame: makeDoorFrame(O[3].clone().add(new THREE.Vector3(5.9, 0, 0)), -Math.PI/2, 0x3a5048) },
+  );
+  scene.add(GS.doors3D[5].frame);
+  scene.add(GS.doors3D[6].frame);
+
+  setCorridorPowered(false);
+}
+
+const moveSpeed = 4.8;
+const sprintMult = 1.55;
+
+function updateMovement(dt) {
+  if (!controls.isLocked || GS.paused) return;
+  const speed = GS.isSprinting ? moveSpeed * sprintMult : moveSpeed;
+  const dir = new THREE.Vector3();
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  forward.y = 0; forward.normalize();
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+  if (GS.moveForward) dir.add(forward);
+  if (GS.moveBackward) dir.sub(forward);
+  if (GS.moveRight) dir.add(right);
+  if (GS.moveLeft) dir.sub(right);
+
+  if (dir.length() > 0) {
+    dir.normalize();
+    const newPos = camera.position.clone().add(dir.multiplyScalar(speed * dt));
+    const off = ROOM_OFFSETS[GS.currentRoom];
+    const { w: roomW, d: roomD } = ROOM_BOUNDS[GS.currentRoom];
+    const margin = 0.45;
+    newPos.x = Math.max(off.x - roomW/2 + margin, Math.min(off.x + roomW/2 - margin, newPos.x));
+    newPos.z = Math.max(off.z - roomD/2 + margin, Math.min(off.z + roomD/2 - margin, newPos.z));
+    newPos.y = 1.7;
+    camera.position.copy(newPos);
+    GS.footstepTimer -= dt;
+    if (GS.footstepTimer <= 0) {
+      playFootstep();
+      GS.footstepTimer = GS.isSprinting ? 0.26 : 0.36;
+    }
+    camera.position.y = 1.7 + Math.sin(GS.time * (GS.isSprinting ? 13 : 9)) * 0.025;
+  }
+
+  const flDir = new THREE.Vector3();
+  camera.getWorldDirection(flDir);
+  flTarget.position.copy(camera.position).add(flDir.multiplyScalar(10));
+}
+
+function updateFlashlight(dt) {
+  if (GS.flashlight.on) {
+    GS.flashlight.battery -= dt * 0.28;
+    if (GS.flashlight.battery < 0) GS.flashlight.battery = 0;
+  }
+  const pct = GS.flashlight.battery / 100;
+  const baseInt = GS.flashlight.on ? (pct > 0 ? 5.2 * (0.35 + 0.65 * pct) : 0.85) : 0;
+  flashlight.visible = GS.flashlight.on;
+  flashlight.intensity = baseInt;
+  document.getElementById('battery-fill').style.width = Math.max(4, pct * 100) + '%';
+  document.getElementById('battery-fill').style.background = pct > 0.45 ? '#4a8a6a' : pct > 0.12 ? '#a08040' : '#6a4048';
+}
+
+function updateFlickerLights() {
+  GS.flickerLights.forEach(fl => {
+    fl.light.intensity = fl.base * (0.75 + Math.sin(GS.time * fl.speed + fl.offset) * 0.22 + Math.random() * 0.04);
+  });
+}
+
+function showDialogue(text, cb) {
+  GS.dialogue = { active: true, fullText: text, text: '', charIndex: 0, timer: 0, callback: cb };
+  document.getElementById('dialogue-box').style.display = 'block';
+}
+
+function updateDialogue(dt) {
+  if (!GS.dialogue.active) return;
+  GS.dialogue.timer += dt;
+  if (GS.dialogue.charIndex < GS.dialogue.fullText.length) {
+    if (GS.dialogue.timer > 0.018) {
+      GS.dialogue.charIndex++;
+      GS.dialogue.text = GS.dialogue.fullText.substring(0, GS.dialogue.charIndex);
+      GS.dialogue.timer = 0;
+      document.getElementById('dialogue-box').textContent = GS.dialogue.text + (GS.dialogue.charIndex < GS.dialogue.fullText.length ? '▌' : '');
+      if (GS.dialogue.charIndex % 4 === 0) playTone(280 + Math.random() * 60, 0.025, 'sine', 0.012);
+    }
+  } else if (GS.dialogue.timer > 2.8) {
+    GS.dialogue.active = false;
+    document.getElementById('dialogue-box').style.display = 'none';
+    if (GS.dialogue.callback) GS.dialogue.callback();
+  }
+}
+
+function addInventoryItem(id, name) {
+  for (let i = 0; i < GS.inventory.length; i++) {
+    if (!GS.inventory[i]) { GS.inventory[i] = { id, name }; updateInventoryUI(); return true; }
+  }
+  return false;
+}
+
+function removeInventoryItem(id) {
+  for (let i = 0; i < GS.inventory.length; i++) {
+    if (GS.inventory[i] && GS.inventory[i].id === id) { GS.inventory[i] = null; updateInventoryUI(); return true; }
+  }
+  return false;
+}
+
+function hasItem(id) {
+  return GS.inventory.some(s => s && s.id === id);
+}
+
+function updateInventoryUI() {
+  const icons = { vault_key_fob: '🔖' };
+  for (let i = 0; i < 5; i++) {
+    const s = document.getElementById(`inv-${i}`);
+    s.className = 'inv-slot' + (i === GS.selectedSlot ? ' active' : '');
+    const item = GS.inventory[i];
+    s.innerHTML = item ? `${icons[item.id] || '📦'}<span class="lbl">${item.name}</span>` : '';
+  }
+}
+
+function updateInteraction() {
+  if (!controls.isLocked || GS.paused) return;
+  const pPos = camera.position;
+  let nearest = null, nearDist = 3;
+
+  GS.interactables3D.forEach(inter => {
+    if (inter.roomIdx !== GS.currentRoom) return;
+    if (inter.type === 'puzzle' && GS.puzzlesSolved.has(inter.id)) return;
+    if (inter.type === 'container' && GS.itemsCollected.has(inter.id)) return;
+    if (inter.requiresItem && !hasItem(inter.requiresItem)) return;
+    const d = pPos.distanceTo(inter.pos);
+    if (d < inter.radius && d < nearDist) { nearDist = d; nearest = inter; }
+  });
+
+  GS.doors3D.forEach(door => {
+    if (door.roomIdx !== GS.currentRoom) return;
+    const d = pPos.distanceTo(door.pos);
+    if (d < 2.4 && d < nearDist) { nearDist = d; nearest = { ...door, type: 'door' }; }
+  });
+
+  GS.nearInteractable = nearest;
+  const prompt = document.getElementById('interact-prompt');
+  if (nearest) {
+    prompt.style.opacity = '1';
+    if (nearest.type === 'door') {
+      const unlocked = GS.doorsUnlocked.has(nearest.id) || !nearest.locked;
+      prompt.textContent = unlocked ? '[E] Use door' : `[E] Locked — ${(nearest.requires || '').replace(/_/g, ' ')}`;
+    } else if (nearest.type === 'note') prompt.textContent = '[E] Read';
+    else if (nearest.type === 'examine') prompt.textContent = '[E] Examine';
+    else if (nearest.type === 'puzzle') {
+      if (nearest.requiresItem && !hasItem(nearest.requiresItem)) prompt.textContent = '[Need vault fob]';
+      else prompt.textContent = `[E] ${nearest.label || 'Puzzle'}`;
+    }
+  } else prompt.style.opacity = '0';
+}
+
+function maybePlaySlam(fromRoom, toRoom) {
+  if (toRoom === 2 && fromRoom !== 2 && !GS.slamPlayed) {
+    GS.slamPlayed = true;
+    setTimeout(() => playSlam(), 400);
+  }
+}
+
+function enterDoor(door) {
+  if (door.isExit) { showVictory(); return; }
+  playDoorOpen();
+  const fromRoom = GS.currentRoom;
+  GS.currentRoom = door.targetRoom;
+  camera.position.copy(door.targetPos);
+  maybePlaySlam(fromRoom, GS.currentRoom);
+  const rd = ROOM_DEFS[GS.currentRoom];
+  document.getElementById('room-name').textContent = rd.name;
+  document.getElementById('objective').textContent = rd.objective;
+}
+
+function handleInteraction() {
+  if (GS.paused || GS.puzzleActive || GS.dialogue.active) return;
+  const inter = GS.nearInteractable;
+  if (!inter) return;
+  playInteract();
+
+  if (inter.type === 'door') {
+    const unlocked = GS.doorsUnlocked.has(inter.id) || !inter.locked;
+    if (unlocked) {
+      enterDoor(inter);
+    } else {
+      const req = inter.requires;
+      if (req && req.startsWith('puzzle:')) {
+        const pid = req.replace('puzzle:', '');
+        if (GS.puzzlesSolved.has(pid)) {
+          GS.doorsUnlocked.add(inter.id);
+          enterDoor(inter);
+        } else { showDialogue('Mag lock engaged. Finish the related task first.'); playError(); }
+      } else if (req && GS.inventory.some(s => s && s.id === req)) {
+        GS.doorsUnlocked.add(inter.id);
+        removeInventoryItem(req);
+        showDialogue('The mag lock reads your fob and releases.');
+        enterDoor(inter);
+      } else {
+        showDialogue(req ? `Locked. You still need: ${req.replace(/_/g, ' ')}` : 'Locked.');
+        playError();
+      }
+    }
+  } else if (inter.type === 'note') {
+    showDialogue(inter.text);
+    GS.notesRead.add(inter.id);
+  } else if (inter.type === 'examine') {
+    showDialogue(inter.text);
+  } else if (inter.type === 'puzzle') {
+    if (inter.requiresItem && !hasItem(inter.requiresItem)) {
+      showDialogue('A small LED reads INSERT FOB. You need the cold-chain access token from storage.');
+      playError();
+      return;
+    }
+    if (!GS.puzzlesSolved.has(inter.id)) openPuzzle(inter);
+  }
+}
+
+function openPuzzle(inter) {
+  GS.puzzleActive = true;
+  GS.currentPuzzle = inter;
+  GS.paused = true;
+  controls.unlock();
+  document.getElementById('puzzle-overlay').style.display = 'flex';
+  document.getElementById('puzzle-title').textContent = inter.label || 'PUZZLE';
+  const pt = inter.puzzleType;
+  if (pt === 'wire') buildWirePuzzle();
+  else if (pt === 'combo') buildComboPuzzle(inter);
+  else if (pt === 'sequence') buildSequencePuzzle(inter);
+  else if (pt === 'keypad') buildKeypadPuzzle(inter);
+}
+
+function closePuzzle() {
+  if (!GS.puzzleActive) return;
+  GS.puzzleActive = false;
+  GS.paused = false;
+  document.getElementById('puzzle-overlay').style.display = 'none';
+  document.getElementById('puzzle-content').innerHTML = '';
+  document.body.requestPointerLock();
+}
+
+document.getElementById('puzzle-close').addEventListener('click', closePuzzle);
+
+function buildWirePuzzle() {
+  const content = document.getElementById('puzzle-content');
+  const colors = ['#c44', '#44c', '#4c4', '#cc4'];
+  const shuffled = [...colors].sort(() => Math.random() - 0.5);
+  let html = `<div style="color:#7a8a9a;margin-bottom:12px;font-size:.85em">Match colored aux pairs. Click left port, then matching right.</div>`;
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;height:200px">`;
+  html += `<div style="display:flex;flex-direction:column;gap:14px">`;
+  colors.forEach((c) => {
+    html += `<div class="wl" data-color="${c}" style="width:38px;height:28px;background:${c};cursor:pointer;border-radius:4px;border:2px solid #2a3848" onclick="window._annexWireClick(this,'left')"></div>`;
+  });
+  html += `</div><canvas id="wire-canvas" width="280" height="200" style="flex:1;margin:0 16px"></canvas><div style="display:flex;flex-direction:column;gap:14px">`;
+  shuffled.forEach((c) => {
+    html += `<div class="wr" data-color="${c}" style="width:38px;height:28px;background:${c};cursor:pointer;border-radius:4px;border:2px solid #2a3848" onclick="window._annexWireClick(this,'right')"></div>`;
+  });
+  html += `</div></div>`;
+  content.innerHTML = html;
+  window._ws = { sel: null, conns: [], target: colors.length };
+}
+
+window._annexWireClick = function(el, side) {
+  const ws = window._ws;
+  if (!ws) return;
+  if (!ws.sel) {
+    if (side === 'left') {
+      ws.sel = { side, color: el.dataset.color, el };
+      el.style.outline = '2px solid #fff';
+      playTone(400, 0.08, 'sine', 0.05);
+    }
+  } else {
+    if (side === 'right' && ws.sel.side === 'left') {
+      if (ws.sel.color === el.dataset.color) {
+        ws.conns.push({ color: ws.sel.color });
+        ws.sel.el.style.opacity = '0.35';
+        ws.sel.el.style.pointerEvents = 'none';
+        el.style.opacity = '0.35';
+        el.style.pointerEvents = 'none';
+        ws.sel.el.style.outline = 'none';
+        playTone(580, 0.12, 'sine', 0.06);
+        const cv = document.getElementById('wire-canvas');
+        if (cv) {
+          const x = cv.getContext('2d');
+          x.clearRect(0, 0, 280, 200);
+          ws.conns.forEach((c, i) => {
+            const ly = 20 + i * 44;
+            x.strokeStyle = c.color;
+            x.lineWidth = 3;
+            x.beginPath();
+            x.moveTo(0, ly);
+            x.bezierCurveTo(90, ly, 190, ly, 280, ly);
+            x.stroke();
+          });
+        }
+        if (ws.conns.length >= ws.target) setTimeout(() => solvePuzzle(GS.currentPuzzle), 450);
+      } else {
+        ws.sel.el.style.outline = 'none';
+        playError();
+      }
+      ws.sel = null;
+    } else {
+      if (ws.sel.el) ws.sel.el.style.outline = 'none';
+      ws.sel = null;
+    }
+  }
+};
+
+function buildComboPuzzle(inter) {
+  const n = inter.digits || 3;
+  const content = document.getElementById('puzzle-content');
+  let html = `<div style="color:#7a8a9a;margin-bottom:14px;font-size:.85em">Enter ${n} digits (click ▲▼).</div><div style="display:flex;gap:16px;justify-content:center;align-items:flex-end">`;
+  for (let i = 0; i < n; i++) {
+    html += `<div style="text-align:center"><button type="button" style="width:44px;padding:4px;background:#2a3848;color:#aab8c8;border:1px solid #4a5a6a;cursor:pointer;border-radius:4px" data-d="${i}" class="cb-up">▲</button>`;
+    html += `<div id="cd-${i}" style="font-size:2em;color:#dde8f0;margin:8px 0">0</div>`;
+    html += `<button type="button" style="width:44px;padding:4px;background:#2a3848;color:#aab8c8;border:1px solid #4a5a6a;cursor:pointer;border-radius:4px" data-d="${i}" class="cb-dn">▼</button></div>`;
+  }
+  html += `</div><button type="button" id="cb-go" style="margin-top:22px;display:block;width:100%;padding:10px;background:#3a5a70;color:#dde8f0;border:none;border-radius:4px;cursor:pointer;font-size:1em">Enter</button>`;
+  content.innerHTML = html;
+  window._cd = new Array(n).fill(0);
+  content.querySelectorAll('.cb-up').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.d;
+    window._cd[i] = (window._cd[i] + 1) % 10;
+    document.getElementById(`cd-${i}`).textContent = window._cd[i];
+    playTone(350, 0.05, 'sine', 0.04);
+  }));
+  content.querySelectorAll('.cb-dn').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.d;
+    window._cd[i] = (window._cd[i] + 9) % 10;
+    document.getElementById(`cd-${i}`).textContent = window._cd[i];
+    playTone(300, 0.05, 'sine', 0.04);
+  }));
+  document.getElementById('cb-go').addEventListener('click', () => {
+    const s = window._cd.join('');
+    if (s === inter.solution) solvePuzzle(inter);
+    else { playError(); showDialogue('Denied. Recheck the plaque years (ones digits, oldest to newest).'); }
+  });
+}
+
+function buildSequencePuzzle(inter) {
+  const content = document.getElementById('puzzle-content');
+  const order = inter.order;
+  const shuffled = [...order].sort(() => Math.random() - 0.5);
+  let html = `<div style="color:#7a8a9a;margin-bottom:12px;font-size:.85em">Tap crates in manifest order (see poster on wall).</div><div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">`;
+  shuffled.forEach((tag) => {
+    html += `<button type="button" class="seq-btn" data-tag="${tag}" style="padding:14px 20px;background:#1e2832;border:1px solid #3a4a5a;color:#c8d8e8;font-family:inherit;cursor:pointer;border-radius:6px;font-size:1em">${tag}</button>`;
+  });
+  html += `</div><div id="seq-prog" style="margin-top:16px;text-align:center;color:#6a8a9a;font-size:.9em">Progress: —</div>`;
+  content.innerHTML = html;
+  window._sq = { want: [...order], idx: 0 };
+  content.querySelectorAll('.seq-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = btn.dataset.tag;
+      const w = window._sq.want[window._sq.idx];
+      if (tag !== w) {
+        window._sq.idx = 0;
+        playError();
+        document.getElementById('seq-prog').textContent = 'Wrong order — sequence reset.';
+        content.querySelectorAll('.seq-btn').forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+        return;
+      }
+      window._sq.idx++;
+      btn.disabled = true;
+      btn.style.opacity = '0.4';
+      playTone(500 + window._sq.idx * 40, 0.1, 'sine', 0.06);
+      document.getElementById('seq-prog').textContent = `Progress: ${window._sq.idx} / ${window._sq.want.length}`;
+      if (window._sq.idx >= window._sq.want.length) setTimeout(() => solvePuzzle(inter), 400);
+    });
+  });
+}
+
+function buildKeypadPuzzle(inter) {
+  const content = document.getElementById('puzzle-content');
+  let html = `<div style="color:#7a8a9a;margin-bottom:12px;font-size:.85em">Four-digit service PIN. Lobby directory (59) + schematic tail (27).</div>`;
+  html += `<div id="kp-disp" style="font-size:1.8em;letter-spacing:.3em;text-align:center;color:#dde8f0;margin:12px 0;font-family:monospace">____</div>`;
+  html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:220px;margin:0 auto">`;
+  for (const n of [1,2,3,4,5,6,7,8,9]) {
+    html += `<button type="button" class="kp-n" data-n="${n}" style="padding:12px;background:#2a3848;color:#dde8f0;border:1px solid #4a5a6a;border-radius:4px;cursor:pointer">${n}</button>`;
+  }
+  html += `<button type="button" class="kp-n" data-n="c" style="grid-column:span 3;padding:8px;background:#3a2828">Clear</button>`;
+  html += `<button type="button" class="kp-n" data-n="0" style="grid-column:span 3;padding:12px;background:#2a3848;color:#dde8f0;border:1px solid #4a5a6a;border-radius:4px;cursor:pointer">0</button>`;
+  html += `</div>`;
+  content.innerHTML = html;
+  window._kp = '';
+  content.querySelectorAll('.kp-n').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.n;
+      if (v === 'c') { window._kp = ''; }
+      else if (window._kp.length < 4) window._kp += v;
+      const disp = document.getElementById('kp-disp');
+      disp.textContent = (window._kp + '____').slice(0, 4);
+      playTone(400, 0.04, 'sine', 0.04);
+      if (window._kp.length === 4) {
+        if (window._kp === inter.solution) setTimeout(() => solvePuzzle(inter), 300);
+        else {
+          playError();
+          window._kp = '';
+          disp.textContent = '____';
+        }
+      }
+    });
+  });
+}
+
+function solvePuzzle(inter) {
+  GS.puzzlesSolved.add(inter.id);
+  playPuzzleSolve();
+  closePuzzle();
+  bloomPass.strength = 0.55;
+  setTimeout(() => { bloomPass.strength = 0.22; }, 400);
+
+  if (inter.puzzleType === 'wire') {
+    showDialogue('Breakers latch. Relay closes — the storage corridor lights surge on.');
+    setCorridorPowered(true);
+    GS.doors3D.forEach(d => { if (d.requires === 'puzzle:' + inter.id) GS.doorsUnlocked.add(d.id); });
+  } else if (inter.puzzleType === 'combo') {
+    showDialogue('The inner door unlocks with a heavy clunk.');
+    GS.doors3D.forEach(d => { if (d.requires === 'puzzle:' + inter.id) GS.doorsUnlocked.add(d.id); });
+  } else if (inter.puzzleType === 'sequence') {
+    addInventoryItem('vault_key_fob', 'vault key fob');
+    showDialogue('The manifest printer spits a laminated fob: COLD STORAGE — VAULT OVERRIDE.');
+  } else if (inter.puzzleType === 'keypad') {
+    showDialogue('PIN accepted. The service door mag lock disengages.');
+    GS.doors3D.forEach(d => { if (d.requires === 'puzzle:' + inter.id) GS.doorsUnlocked.add(d.id); });
+  }
+}
+
+function showVictory() {
+  GS.paused = true;
+  controls.unlock();
+  bloomPass.strength = 0.9;
+  setTimeout(() => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:#05080c;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Segoe UI,system-ui,sans-serif;padding:24px';
+    const lines = [
+      ['You push into the stairwell. Emergency strip lighting hums overhead.', '#aab8c8', '15px'],
+      ['', '', ''],
+      ['Behind you, Annex B settles into silence — just rain on the loading ramp.', '#6a7a88', '13px'],
+      ['', '', ''],
+      ['— EASTPORT ANNEX B —', '#6a9aba', '18px'],
+      ['', '', ''],
+      ['Thanks for playing.', '#5a6570', '12px'],
+      ['Press R to restart', '#4a5560', '11px'],
+    ];
+    lines.forEach(([t, c, s]) => {
+      const p = document.createElement('p');
+      p.textContent = t;
+      p.style.cssText = `color:${c};font-size:${s};margin:5px 0`;
+      ov.appendChild(p);
+    });
+    document.body.appendChild(ov);
+    window.addEventListener('keydown', function r(e) {
+      if (e.key.toLowerCase() === 'r') { window.removeEventListener('keydown', r); location.reload(); }
+    });
+  }, 600);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && GS.puzzleActive) { closePuzzle(); return; }
+  switch (e.code) {
+    case 'KeyW': case 'ArrowUp': GS.moveForward = true; break;
+    case 'KeyS': case 'ArrowDown': GS.moveBackward = true; break;
+    case 'KeyA': case 'ArrowLeft': GS.moveLeft = true; break;
+    case 'KeyD': case 'ArrowRight': GS.moveRight = true; break;
+    case 'ShiftLeft': case 'ShiftRight': GS.isSprinting = true; break;
+    case 'KeyE': handleInteraction(); break;
+    case 'KeyF':
+      GS.flashlight.on = !GS.flashlight.on;
+      playTone(GS.flashlight.on ? 480 : 320, 0.08, 'sine', 0.05);
+      break;
+    case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5':
+      GS.selectedSlot = parseInt(e.code.replace('Digit', ''), 10) - 1;
+      updateInventoryUI();
+      break;
+  }
+});
+document.addEventListener('keyup', e => {
+  switch (e.code) {
+    case 'KeyW': case 'ArrowUp': GS.moveForward = false; break;
+    case 'KeyS': case 'ArrowDown': GS.moveBackward = false; break;
+    case 'KeyA': case 'ArrowLeft': GS.moveLeft = false; break;
+    case 'KeyD': case 'ArrowRight': GS.moveRight = false; break;
+    case 'ShiftLeft': case 'ShiftRight': GS.isSprinting = false; break;
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'KeyE' && GS.dialogue.active && GS.dialogue.charIndex >= GS.dialogue.fullText.length) {
+    GS.dialogue.active = false;
+    document.getElementById('dialogue-box').style.display = 'none';
+    if (GS.dialogue.callback) GS.dialogue.callback();
+  }
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  GS.time += dt;
+  if (GS.started && !GS.paused) {
+    updateMovement(dt);
+    updateFlashlight(dt);
+    updateInteraction();
+    updateDialogue(dt);
+    updateFlickerLights();
+    grainPass.uniforms.time.value = GS.time;
+  }
+  composer.render();
+}
+
+const blocker = document.getElementById('blocker');
+blocker.addEventListener('click', () => {
+  if (!GS.started) {
+    initAudio();
+    buildAllRooms();
+    GS.started = true;
+    const rd = ROOM_DEFS[0];
+    camera.position.set(ROOM_OFFSETS[0].x + rd.spawnX, 1.7, ROOM_OFFSETS[0].z + rd.spawnZ);
+    document.getElementById('room-name').textContent = rd.name;
+    document.getElementById('objective').textContent = rd.objective;
+    updateInventoryUI();
+    showDialogue('The annex is sealed. Your phone has no signal down here. Use the keypad beside the inner door — the note on the desk should help.');
+  }
+  controls.lock();
+});
+
+controls.addEventListener('lock', () => { blocker.classList.add('hidden'); });
+controls.addEventListener('unlock', () => { if (!GS.puzzleActive && !GS.paused) blocker.classList.remove('hidden'); });
+
+animate();
+</script>
+</body>
+</html>

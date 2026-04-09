@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polytrack - 3D Racing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer { position: relative; }
+        #gameCanvas { display: block; }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 10;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #ui div { margin: 3px 0; }
+        #boostIndicator { font-size: 24px; font-weight: bold; color: #0ff; display: none; }
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 14px;
+            text-shadow: 2px 2px 4px #000;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+        #lapCelebration {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 56px;
+            font-weight: bold;
+            color: #ffff00;
+            text-shadow: 0 0 20px #ff0, 2px 2px 4px #000;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <div>Speed: <span id="speed">0</span> km/h</div>
+            <div>Lap: <span id="lap">0</span></div>
+            <div>Current: <span id="currentLap">--</span></div>
+            <div>Best: <span id="bestLap">--</span></div>
+            <div id="boostIndicator">⚡ BOOST!</div>
+        </div>
+        <div id="instructions">ARROW KEYS or WASD to drive | SPACE = handbrake</div>
+        <div id="lapCelebration"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const game = {
+            car: {
+                speed: 0,
+                maxSpeed: 120,
+                acceleration: 2,
+                deceleration: 1.5,
+                turnSpeed: 0.02,
+                laneOffset: 0,
+                maxLaneOffset: 4
+            },
+            keys: {},
+            lapCount: 0,
+            bestLap: null,
+            lapStartTime: null,
+            currentLapTime: 0,
+            checkpoints: [],
+            lastCheckpoint: -1,
+            lapCelebration: 0,
+            speedBoostActive: false,
+            speedBoostTime: 0,
+            trackProgress: 0,
+            trackLength: 1
+        };
+
+        // Three.js setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 50, 400);
+
+        const camera = new THREE.PerspectiveCamera(75, 800 / 600, 0.1, 1000);
+        camera.position.set(0, 2, 0);
+        camera.rotation.order = 'YXZ';
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setSize(800, 600);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // Lights
+        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambient);
+        const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+        sun.position.set(50, 100, 50);
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 2048;
+        sun.shadow.mapSize.height = 2048;
+        sun.shadow.camera.near = 0.5;
+        sun.shadow.camera.far = 500;
+        sun.shadow.camera.left = -100;
+        sun.shadow.camera.right = 100;
+        sun.shadow.camera.top = 100;
+        sun.shadow.camera.bottom = -100;
+        scene.add(sun);
+
+        // Track: oval path
+        const trackRadius = 80;
+        const trackWidth = 12;
+        const pathPoints = [];
+        const numPathPoints = 64;
+        for (let i = 0; i <= numPathPoints; i++) {
+            const t = (i / numPathPoints) * Math.PI * 2;
+            pathPoints.push(new THREE.Vector3(
+                Math.cos(t) * trackRadius,
+                0,
+                Math.sin(t) * trackRadius
+            ));
+        }
+        const trackCurve = new THREE.CatmullRomCurve3(pathPoints, true);
+        game.trackLength = trackCurve.getLength();
+
+        // Road geometry: extrude a flat shape along the curve
+        const roadShape = new THREE.Shape();
+        const hw = trackWidth / 2;
+        roadShape.moveTo(-hw, -0.05);
+        roadShape.lineTo(hw, -0.05);
+        roadShape.lineTo(hw, 0.05);
+        roadShape.lineTo(-hw, 0.05);
+        roadShape.closePath();
+
+        const extrudeSettings = {
+            steps: pathPoints.length * 2,
+            bevelEnabled: false,
+            extrudePath: trackCurve
+        };
+        const roadGeom = new THREE.ExtrudeGeometry(roadShape, extrudeSettings);
+        roadGeom.rotateX(-Math.PI / 2);
+        const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+        const road = new THREE.Mesh(roadGeom, roadMat);
+        road.receiveShadow = true;
+        scene.add(road);
+
+        // Road center line
+        const linePoints = trackCurve.getPoints(200);
+        const lineGeom = new THREE.BufferGeometry().setFromPoints(linePoints);
+        const lineMat = new THREE.LineDashedMaterial({ color: 0xffff00, dashSize: 2, gapSize: 1 });
+        const centerLine = new THREE.Line(lineGeom, lineMat);
+        centerLine.computeLineDistances();
+        centerLine.position.y = 0.05;
+        scene.add(centerLine);
+
+        // Barriers (inner and outer)
+        const barrierHeight = 0.8;
+        const barrierGeom = new THREE.BoxGeometry(0.5, barrierHeight, 1.5);
+        const barrierMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+        const barrierPositions = trackCurve.getPoints(120);
+        barrierPositions.forEach((p, i) => {
+            const t = i / 120;
+            const tangent = trackCurve.getTangent(t);
+            const perp = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
+            const inner = new THREE.Mesh(barrierGeom, barrierMat);
+            inner.position.copy(p).add(perp.clone().multiplyScalar(-(trackWidth/2 + 1)));
+            inner.position.y = barrierHeight / 2;
+            inner.rotation.y = -Math.atan2(tangent.x, tangent.z);
+            scene.add(inner);
+            const outer = new THREE.Mesh(barrierGeom, barrierMat);
+            outer.position.copy(p).add(perp.clone().multiplyScalar(trackWidth/2 + 1));
+            outer.position.y = barrierHeight / 2;
+            outer.rotation.y = -Math.atan2(tangent.x, tangent.z);
+            scene.add(outer);
+        });
+
+        // Ground
+        const groundGeom = new THREE.PlaneGeometry(500, 500);
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+        const ground = new THREE.Mesh(groundGeom, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Camera rig (moves along track) - camera is child so it follows
+        const cameraRig = new THREE.Object3D();
+        scene.add(cameraRig);
+        cameraRig.add(camera);
+        camera.position.set(0, 0, 0);
+
+        // Speed boost pads
+        const boostSegmentCount = 4;
+        const boostGeom = new THREE.PlaneGeometry(trackWidth * 0.9, 3);
+        const boostMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 });
+        game.boostPads = [];
+        for (let i = 0; i < boostSegmentCount; i++) {
+            const t = (i / boostSegmentCount) * Math.PI * 2;
+            const pos = trackCurve.getPoint(i / boostSegmentCount);
+            const tangent = trackCurve.getTangent(i / boostSegmentCount);
+            const boostPad = new THREE.Mesh(boostGeom, boostMat);
+            boostPad.position.copy(pos);
+            boostPad.position.y = 0.06;
+            boostPad.rotation.x = -Math.PI / 2;
+            boostPad.rotation.z = -Math.atan2(tangent.x, tangent.z);
+            boostPad.userData = { index: i, active: true };
+            scene.add(boostPad);
+            game.boostPads.push(boostPad);
+        }
+
+        // Checkpoints (segment indices: 16, 32, 48, then 0 = finish)
+        game.checkpoints = [
+            { segment: 16, passed: false },
+            { segment: 32, passed: false },
+            { segment: 48, passed: false },
+            { segment: 0, passed: false }
+        ];
+
+        // Input
+        document.addEventListener('keydown', (e) => {
+            game.keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ') e.preventDefault();
+        });
+        document.addEventListener('keyup', (e) => {
+            game.keys[e.key.toLowerCase()] = false;
+        });
+
+        function getPositionOnTrack(progress, laneOffset) {
+            const t = (progress % 1 + 1) % 1;
+            const point = trackCurve.getPoint(t);
+            const tangent = trackCurve.getTangent(t);
+            const perp = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
+            return point.clone().add(perp.multiplyScalar(laneOffset));
+        }
+
+        function getTangentOnTrack(progress) {
+            const t = (progress % 1 + 1) % 1;
+            return trackCurve.getTangent(t).clone();
+        }
+
+        function update(delta) {
+            const car = game.car;
+            let accel = 0, turn = 0;
+            if (game.keys['arrowup'] || game.keys['w']) accel = 1;
+            if (game.keys['arrowdown'] || game.keys['s']) accel = -1;
+            if (game.keys['arrowleft'] || game.keys['a']) turn = 1;
+            if (game.keys['arrowright'] || game.keys['d']) turn = -1;
+            if (game.keys[' ']) car.speed *= 0.92;
+
+            const maxSpeed = game.speedBoostActive ? car.maxSpeed * 1.3 : car.maxSpeed;
+            if (accel !== 0) {
+                car.speed += accel * car.acceleration * delta * 60;
+                car.speed = Math.max(-30, Math.min(maxSpeed, car.speed));
+            } else {
+                car.speed *= (1 - car.deceleration * 0.016);
+                if (Math.abs(car.speed) < 0.5) car.speed = 0;
+            }
+
+            game.trackProgress += (car.speed / game.trackLength) * delta * 2;
+            car.laneOffset += turn * car.turnSpeed * Math.abs(car.speed) * delta * 60;
+            car.laneOffset = Math.max(-car.maxLaneOffset, Math.min(car.maxLaneOffset, car.laneOffset));
+
+            const pos = getPositionOnTrack(game.trackProgress, car.laneOffset);
+            const tangent = getTangentOnTrack(game.trackProgress);
+            cameraRig.position.copy(pos);
+            cameraRig.position.y = 1.8;
+            cameraRig.lookAt(pos.clone().add(tangent));
+
+            // Speed boost pads
+            const segmentIndex = Math.floor((game.trackProgress % 1) * boostSegmentCount * 16);
+            game.boostPads.forEach((pad, i) => {
+                const seg = (i * 16);
+                if (segmentIndex >= seg - 1 && segmentIndex <= seg + 1 && pad.userData.active) {
+                    car.speed = Math.min(car.speed + 15, car.maxSpeed * 1.3);
+                    game.speedBoostActive = true;
+                    game.speedBoostTime = 60;
+                    pad.userData.active = false;
+                    setTimeout(() => { pad.userData.active = true; }, 3000);
+                }
+            });
+            if (game.speedBoostTime > 0) game.speedBoostTime--;
+            else game.speedBoostActive = false;
+
+            // Checkpoints / laps
+            const seg = Math.floor((game.trackProgress % 1) * 64);
+            game.checkpoints.forEach((cp, idx) => {
+                if (seg === cp.segment && !cp.passed) {
+                    const next = (game.lastCheckpoint + 1) % game.checkpoints.length;
+                    if (idx === next || (game.lastCheckpoint === -1 && idx === 0)) {
+                        cp.passed = true;
+                        game.lastCheckpoint = idx;
+                        if (idx === game.checkpoints.length - 1) {
+                            if (game.lapStartTime) {
+                                const lapTime = Date.now() - game.lapStartTime;
+                                if (!game.bestLap || lapTime < game.bestLap) game.bestLap = lapTime;
+                            }
+                            game.lapCount++;
+                            game.lapStartTime = Date.now();
+                            game.checkpoints.forEach(c => c.passed = false);
+                            game.lastCheckpoint = -1;
+                            game.lapCelebration = 90;
+                        }
+                    }
+                }
+            });
+
+            if (game.lapCelebration > 0) {
+                game.lapCelebration--;
+                const el = document.getElementById('lapCelebration');
+                el.textContent = 'LAP ' + game.lapCount + '!';
+                el.style.opacity = '1';
+            } else {
+                document.getElementById('lapCelebration').style.opacity = '0';
+            }
+
+            document.getElementById('speed').textContent = Math.round(Math.abs(car.speed));
+            document.getElementById('lap').textContent = game.lapCount;
+            if (game.lapStartTime) {
+                game.currentLapTime = Date.now() - game.lapStartTime;
+                document.getElementById('currentLap').textContent = (game.currentLapTime / 1000).toFixed(2) + 's';
+            }
+            if (game.bestLap) document.getElementById('bestLap').textContent = (game.bestLap / 1000).toFixed(2) + 's';
+            document.getElementById('boostIndicator').style.display = game.speedBoostActive ? 'block' : 'none';
+        }
+
+        function render() {
+            renderer.render(scene, camera);
+        }
+
+        function animate(time) {
+            const delta = 0.016;
+            update(delta);
+            render();
+            requestAnimationFrame(animate);
+        }
+
+        game.lapStartTime = Date.now();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>

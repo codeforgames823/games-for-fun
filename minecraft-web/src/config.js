@@ -1,0 +1,195 @@
+export const CHUNK_SIZE = 16;
+export const CHUNK_HEIGHT = 64;
+export const RENDER_DISTANCE = 6;
+export const SEA_LEVEL = 20;
+export const TERRAIN_SCALE = 0.02;
+export const TERRAIN_HEIGHT = 24;
+export const BASE_HEIGHT = 10;
+
+export const GRAVITY = 28;
+export const JUMP_VELOCITY = 9;
+export const PLAYER_SPEED = 6;
+export const FLY_SPEED = 12;
+export const MOUSE_SENSITIVITY = 0.002;
+export const PLAYER_HEIGHT = 1.62;
+export const PLAYER_WIDTH = 0.6;
+export const REACH_DISTANCE = 6;
+
+export const FOG_NEAR_FACTOR = 0.6;
+export const FOG_FAR_FACTOR = 0.95;
+export const SKY_COLOR = 0x87ceeb;
+
+export const BlockType = {
+  AIR: 0,
+  STONE: 1,
+  DIRT: 2,
+  GRASS: 3,
+  WOOD: 4,
+  LEAVES: 5,
+  SAND: 6,
+  WATER: 7,
+  GLASS: 8,
+  BEDROCK: 9,
+  COBBLESTONE: 10,
+  PLANKS: 11,
+  BRICK: 12,
+  SNOW: 13,
+  COAL_ORE: 14,
+  IRON_ORE: 15,
+  GOLD_ORE: 16,
+  DIAMOND_ORE: 17,
+  FLOWER_RED: 18,
+  FLOWER_YELLOW: 19,
+  TALL_GRASS: 20,
+  GRAVEL: 21,
+  CLAY: 22,
+  SNOW_GRASS: 23,
+  JUNGLE_WOOD: 24,
+  JUNGLE_LEAVES: 25,
+  CACTUS: 26,
+  MUSHROOM_STEM: 27,
+  MUSHROOM_RED: 28,
+  MUSHROOM_BROWN: 29,
+  DARK_WOOD: 30,
+  DARK_LEAVES: 31,
+  MOSSY_COBBLE: 32,
+  MUD: 33,
+  LILY_PAD: 34,
+  VINES: 35,
+  ACACIA_WOOD: 36,
+  ACACIA_LEAVES: 37,
+  PACKED_ICE: 38,
+  CORAL: 39,
+  SEAGRASS: 40,
+  RED_SAND: 41,
+};
+
+export const BLOCK_COLORS = {
+  [BlockType.STONE]:       { top: 0x888888, side: 0x808080, bottom: 0x787878 },
+  [BlockType.DIRT]:        { top: 0x8b6914, side: 0x8b6914, bottom: 0x8b6914 },
+  [BlockType.GRASS]:       { top: 0x5da83a, side: 0x8b6914, bottom: 0x8b6914 },
+  [BlockType.WOOD]:        { top: 0xa08050, side: 0x6b4423, bottom: 0xa08050 },
+  [BlockType.LEAVES]:      { top: 0x3a8c1f, side: 0x2e7d18, bottom: 0x2e7d18 },
+  [BlockType.SAND]:        { top: 0xdbc67b, side: 0xd4b96a, bottom: 0xccab59 },
+  [BlockType.WATER]:       { top: 0x3070d0, side: 0x2860c0, bottom: 0x2050b0 },
+  [BlockType.GLASS]:       { top: 0xddeeee, side: 0xccdddd, bottom: 0xbbcccc },
+  [BlockType.BEDROCK]:     { top: 0x444444, side: 0x3a3a3a, bottom: 0x333333 },
+  [BlockType.COBBLESTONE]: { top: 0x7a7a7a, side: 0x727272, bottom: 0x6a6a6a },
+  [BlockType.PLANKS]:      { top: 0xbc9452, side: 0xb08844, bottom: 0xa47c38 },
+  [BlockType.BRICK]:       { top: 0xa03020, side: 0x962818, bottom: 0x8c2010 },
+  [BlockType.SNOW]:        { top: 0xf0f0f0, side: 0xe8e8e8, bottom: 0xe0e0e0 },
+  [BlockType.COAL_ORE]:    { top: 0x808080, side: 0x707070, bottom: 0x686868 },
+  [BlockType.IRON_ORE]:    { top: 0x908070, side: 0x887868, bottom: 0x807060 },
+  [BlockType.GOLD_ORE]:    { top: 0xa09040, side: 0x988838, bottom: 0x908030 },
+  [BlockType.DIAMOND_ORE]: { top: 0x60b0c0, side: 0x58a8b8, bottom: 0x50a0b0 },
+  [BlockType.FLOWER_RED]:  { top: 0xd03020, side: 0xd03020, bottom: 0xd03020 },
+  [BlockType.FLOWER_YELLOW]: { top: 0xe0c020, side: 0xe0c020, bottom: 0xe0c020 },
+  [BlockType.TALL_GRASS]:  { top: 0x5da83a, side: 0x5da83a, bottom: 0x5da83a },
+  [BlockType.GRAVEL]:      { top: 0x908080, side: 0x887878, bottom: 0x807070 },
+  [BlockType.CLAY]:        { top: 0xa0a0b0, side: 0x9898a8, bottom: 0x9090a0 },
+  [BlockType.SNOW_GRASS]:  { top: 0xf0f0f0, side: 0xc8c0b8, bottom: 0x8b6914 },
+  [BlockType.JUNGLE_WOOD]:  { top: 0x7a6030, side: 0x5a4020, bottom: 0x7a6030 },
+  [BlockType.JUNGLE_LEAVES]:{ top: 0x1a6a10, side: 0x165a0c, bottom: 0x165a0c },
+  [BlockType.CACTUS]:       { top: 0x2a7a20, side: 0x1a6a10, bottom: 0x2a7a20 },
+  [BlockType.MUSHROOM_STEM]:{ top: 0xe0d8c8, side: 0xd8d0c0, bottom: 0xe0d8c8 },
+  [BlockType.MUSHROOM_RED]: { top: 0xc02020, side: 0xb01818, bottom: 0xb01818 },
+  [BlockType.MUSHROOM_BROWN]:{ top: 0x8a6040, side: 0x7a5030, bottom: 0x7a5030 },
+  [BlockType.DARK_WOOD]:    { top: 0x3a2810, side: 0x2a1c0a, bottom: 0x3a2810 },
+  [BlockType.DARK_LEAVES]:  { top: 0x1a4a10, side: 0x143a0a, bottom: 0x143a0a },
+  [BlockType.MOSSY_COBBLE]: { top: 0x5a7a5a, side: 0x527252, bottom: 0x4a6a4a },
+  [BlockType.MUD]:          { top: 0x5a4020, side: 0x503818, bottom: 0x483010 },
+  [BlockType.LILY_PAD]:     { top: 0x2a7a20, side: 0x2a7a20, bottom: 0x2a7a20 },
+  [BlockType.VINES]:        { top: 0x2a6a18, side: 0x2a6a18, bottom: 0x2a6a18 },
+  [BlockType.ACACIA_WOOD]:  { top: 0x9a7050, side: 0x6a4828, bottom: 0x9a7050 },
+  [BlockType.ACACIA_LEAVES]:{ top: 0x6a8a20, side: 0x5a7a18, bottom: 0x5a7a18 },
+  [BlockType.PACKED_ICE]:   { top: 0x9abade, side: 0x88aad0, bottom: 0x7898c0 },
+  [BlockType.CORAL]:        { top: 0xe06090, side: 0xd05080, bottom: 0xc04070 },
+  [BlockType.SEAGRASS]:     { top: 0x2a8a30, side: 0x2a8a30, bottom: 0x2a8a30 },
+  [BlockType.RED_SAND]:     { top: 0xc0783a, side: 0xb87030, bottom: 0xb06828 },
+};
+
+export const BLOCK_NAMES = {
+  [BlockType.STONE]: 'Stone',
+  [BlockType.DIRT]: 'Dirt',
+  [BlockType.GRASS]: 'Grass',
+  [BlockType.WOOD]: 'Wood',
+  [BlockType.LEAVES]: 'Leaves',
+  [BlockType.SAND]: 'Sand',
+  [BlockType.WATER]: 'Water',
+  [BlockType.GLASS]: 'Glass',
+  [BlockType.COBBLESTONE]: 'Cobblestone',
+  [BlockType.PLANKS]: 'Planks',
+  [BlockType.BRICK]: 'Brick',
+  [BlockType.SNOW]: 'Snow',
+  [BlockType.COAL_ORE]: 'Coal Ore',
+  [BlockType.IRON_ORE]: 'Iron Ore',
+  [BlockType.GOLD_ORE]: 'Gold Ore',
+  [BlockType.DIAMOND_ORE]: 'Diamond Ore',
+  [BlockType.GRAVEL]: 'Gravel',
+  [BlockType.CLAY]: 'Clay',
+  [BlockType.JUNGLE_WOOD]: 'Jungle Wood',
+  [BlockType.JUNGLE_LEAVES]: 'Jungle Leaves',
+  [BlockType.CACTUS]: 'Cactus',
+  [BlockType.MUSHROOM_STEM]: 'Mushroom Stem',
+  [BlockType.MUSHROOM_RED]: 'Red Mushroom',
+  [BlockType.MUSHROOM_BROWN]: 'Brown Mushroom',
+  [BlockType.DARK_WOOD]: 'Dark Wood',
+  [BlockType.DARK_LEAVES]: 'Dark Leaves',
+  [BlockType.MOSSY_COBBLE]: 'Mossy Cobble',
+  [BlockType.MUD]: 'Mud',
+  [BlockType.ACACIA_WOOD]: 'Acacia Wood',
+  [BlockType.ACACIA_LEAVES]: 'Acacia Leaves',
+  [BlockType.PACKED_ICE]: 'Packed Ice',
+  [BlockType.RED_SAND]: 'Red Sand',
+};
+
+export const HOTBAR_BLOCKS = [
+  BlockType.GRASS,
+  BlockType.DIRT,
+  BlockType.STONE,
+  BlockType.COBBLESTONE,
+  BlockType.WOOD,
+  BlockType.PLANKS,
+  BlockType.BRICK,
+  BlockType.GLASS,
+  BlockType.SAND,
+  BlockType.SNOW,
+  BlockType.GRAVEL,
+  BlockType.LEAVES,
+  BlockType.JUNGLE_WOOD,
+  BlockType.DARK_WOOD,
+  BlockType.ACACIA_WOOD,
+  BlockType.MOSSY_COBBLE,
+  BlockType.MUD,
+  BlockType.CACTUS,
+  BlockType.PACKED_ICE,
+  BlockType.RED_SAND,
+];
+
+export const TRANSPARENT_BLOCKS = new Set([
+  BlockType.AIR,
+  BlockType.GLASS,
+  BlockType.WATER,
+  BlockType.LEAVES,
+  BlockType.FLOWER_RED,
+  BlockType.FLOWER_YELLOW,
+  BlockType.TALL_GRASS,
+  BlockType.JUNGLE_LEAVES,
+  BlockType.DARK_LEAVES,
+  BlockType.ACACIA_LEAVES,
+  BlockType.VINES,
+  BlockType.LILY_PAD,
+  BlockType.SEAGRASS,
+  BlockType.CORAL,
+]);
+
+export const NON_SOLID_BLOCKS = new Set([
+  BlockType.AIR,
+  BlockType.WATER,
+  BlockType.FLOWER_RED,
+  BlockType.FLOWER_YELLOW,
+  BlockType.TALL_GRASS,
+  BlockType.VINES,
+  BlockType.LILY_PAD,
+  BlockType.SEAGRASS,
+]);

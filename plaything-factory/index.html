@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plaything Factory</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Courier New',monospace;user-select:none}
+canvas{display:block}
+#blocker{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:opacity 0.5s}
+#blocker.hidden{opacity:0;pointer-events:none}
+#blocker h1{color:#c44;font-size:3em;letter-spacing:.3em;text-transform:uppercase;text-shadow:0 0 10px #c44,0 0 40px rgba(204,68,68,.3);animation:flicker 3s infinite}
+#blocker .sub{color:#665;font-size:.9em;margin-top:20px;letter-spacing:.15em}
+#blocker .click{color:#aa9;font-size:1em;margin-top:40px;letter-spacing:.1em;animation:pulse 2s infinite}
+@keyframes flicker{0%,100%{opacity:1}42%{opacity:.6}43%{opacity:1}44%{opacity:.7}45%{opacity:1}83%{opacity:.4}84%{opacity:1}}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+#hud{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50}
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:51;pointer-events:none}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(200,180,150,.4)}
+#crosshair::before{width:16px;height:1px;top:0;left:-8px}
+#crosshair::after{width:1px;height:16px;top:-8px;left:0}
+#room-label{position:fixed;top:20px;left:20px;z-index:51;pointer-events:none}
+#room-label .name{color:#aa9;font-size:.85em;letter-spacing:.1em;opacity:.7}
+#room-label .obj{color:#887;font-size:.7em;margin-top:6px;opacity:.6}
+#interact-prompt{position:fixed;bottom:120px;left:50%;transform:translateX(-50%);color:#aa9;font-size:.8em;letter-spacing:.1em;z-index:51;pointer-events:none;opacity:0;transition:opacity .3s;text-shadow:0 0 10px rgba(0,0,0,.8)}
+#dialogue-box{position:fixed;bottom:140px;left:50%;transform:translateX(-50%);max-width:500px;width:80%;background:rgba(15,12,10,.92);border:1px solid #3a3530;padding:16px 20px;color:#aa9;font-size:.8em;line-height:1.6;z-index:55;display:none;letter-spacing:.05em}
+#battery-hud{position:fixed;top:20px;right:20px;z-index:51;pointer-events:none}
+#battery-bar{width:40px;height:16px;border:1px solid #555;position:relative;display:inline-block;vertical-align:middle}
+#battery-bar::after{content:'';position:absolute;right:-4px;top:3px;width:3px;height:10px;border:1px solid #555}
+#battery-fill{height:100%;background:#5a8050;transition:width .3s}
+#battery-label{color:rgba(200,180,150,.4);font-size:9px;display:block;text-align:center;margin-top:4px}
+#inventory-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:51;pointer-events:none}
+.inv-slot{width:56px;height:56px;border:1px solid rgba(100,90,80,.4);background:rgba(10,10,10,.7);display:flex;align-items:center;justify-content:center;font-size:1.5em;position:relative}
+.inv-slot.active{border-color:#c44;box-shadow:0 0 8px rgba(204,68,68,.3)}
+.inv-slot .lbl{position:absolute;bottom:-16px;font-size:.45em;color:#665;white-space:nowrap}
+#puzzle-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:100;display:none;align-items:center;justify-content:center}
+#puzzle-container{position:relative;background:#1a1816;border:2px solid #3a3530;padding:30px;max-width:600px;width:90%;pointer-events:all}
+#puzzle-title{color:#c44;font-size:1.2em;letter-spacing:.15em;margin-bottom:20px;text-transform:uppercase;text-align:center}
+#puzzle-content{color:#aa9;min-height:200px}
+#puzzle-close{position:absolute;top:10px;right:15px;color:#665;font-size:1.5em;cursor:pointer;pointer-events:all}
+#puzzle-close:hover{color:#c44}
+#vhs-overlay{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:60;opacity:.06;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.3) 2px,rgba(0,0,0,.3) 4px)}
+#vignette{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:59;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.7) 100%)}
+#fx-canvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:58;opacity:.04}
+</style>
+</head>
+<body>
+<div id="blocker">
+  <h1>Plaything Factory</h1>
+  <div class="sub">An abandoned place remembers...</div>
+  <div class="click">[ Click to Enter ]</div>
+</div>
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="room-label"><div class="name" id="room-name">ENTRANCE LOBBY</div><div class="obj" id="objective">Find the keycard to the Production Floor</div></div>
+  <div id="battery-hud"><div id="battery-bar"><div id="battery-fill" style="width:100%"></div></div><span id="battery-label">BATTERY</span></div>
+  <div id="interact-prompt">[E] Interact</div>
+  <div id="dialogue-box"></div>
+  <div id="inventory-bar">
+    <div class="inv-slot active" id="inv-0"></div>
+    <div class="inv-slot" id="inv-1"></div>
+    <div class="inv-slot" id="inv-2"></div>
+    <div class="inv-slot" id="inv-3"></div>
+    <div class="inv-slot" id="inv-4"></div>
+  </div>
+</div>
+<div id="puzzle-overlay"><div id="puzzle-container"><div id="puzzle-close">&times;</div><div id="puzzle-title"></div><div id="puzzle-content"></div></div></div>
+<div id="vhs-overlay"></div>
+<div id="vignette"></div>
+<canvas id="fx-canvas"></canvas>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.162.0",
+    "three/addons/": "https://esm.sh/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+
+// ============================================================
+// CORE ENGINE
+// ============================================================
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.6;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050404);
+scene.fog = new THREE.FogExp2(0x050404, 0.035);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 1.7, 0);
+
+const listener = new THREE.AudioListener();
+camera.add(listener);
+
+const controls = new PointerLockControls(camera, document.body);
+
+const clock = new THREE.Clock();
+
+// Post-processing
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.3, 0.5, 0.85);
+composer.addPass(bloomPass);
+
+const filmGrainShader = {
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, intensity: { value: 0.08 }, vignetteStrength: { value: 0.7 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float time; uniform float intensity; uniform float vignetteStrength;
+    varying vec2 vUv;
+    float rand(vec2 co){ return fract(sin(dot(co,vec2(12.9898,78.233)))*43758.5453); }
+    void main(){
+      vec4 color=texture2D(tDiffuse,vUv);
+      float grain=rand(vUv*time)*intensity;
+      color.rgb+=grain-intensity*0.5;
+      // chromatic aberration
+      float dist=distance(vUv,vec2(0.5));
+      float aberr=dist*0.003;
+      color.r=texture2D(tDiffuse,vUv+vec2(aberr,0.0)).r;
+      color.b=texture2D(tDiffuse,vUv-vec2(aberr,0.0)).b;
+      // vignette
+      float vig=1.0-dist*vignetteStrength*1.4;
+      color.rgb*=vig;
+      gl_FragColor=color;
+    }`
+};
+const grainPass = new ShaderPass(filmGrainShader);
+composer.addPass(grainPass);
+
+const fxaaPass = new ShaderPass(FXAAShader);
+fxaaPass.uniforms['resolution'].value.set(1/window.innerWidth, 1/window.innerHeight);
+composer.addPass(fxaaPass);
+
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  fxaaPass.uniforms['resolution'].value.set(1/w, 1/h);
+});
+
+// ============================================================
+// AUDIO ENGINE
+// ============================================================
+let audioCtx;
+function initAudio() { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playTone(freq, dur, type='sine', vol=0.1) {
+  if(!audioCtx) return;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type=type; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur);
+  o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+dur);
+}
+function playNoise(dur, vol=0.05) {
+  if(!audioCtx) return;
+  const sz=audioCtx.sampleRate*dur, buf=audioCtx.createBuffer(1,sz,audioCtx.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<sz;i++) d[i]=Math.random()*2-1;
+  const s=audioCtx.createBufferSource(); s.buffer=buf;
+  const g=audioCtx.createGain(); g.gain.setValueAtTime(vol,audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+  const f=audioCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=800;
+  s.connect(f); f.connect(g); g.connect(audioCtx.destination); s.start();
+}
+function playFootstep() { playNoise(0.08,0.06); playTone(80+Math.random()*40,0.1,'triangle',0.04); }
+function playInteract() { playTone(440,0.15,'sine',0.08); setTimeout(()=>playTone(660,0.1,'sine',0.06),80); }
+function playPuzzleSolve() { [440,554,659,880].forEach((f,i)=>setTimeout(()=>playTone(f,0.3,'sine',0.1),i*120)); }
+function playError() { playTone(200,0.3,'sawtooth',0.08); setTimeout(()=>playTone(150,0.4,'sawtooth',0.06),150); }
+function playDoorOpen() { for(let i=0;i<5;i++) setTimeout(()=>playNoise(0.1,0.04),i*60); playTone(100,0.6,'triangle',0.05); }
+function playCreak() { playTone(60+Math.random()*40,0.8,'sawtooth',0.03); playNoise(0.4,0.02); }
+function playJumpscare() { playTone(100,1,'sawtooth',0.15); playNoise(0.8,0.12); playTone(2000,0.3,'square',0.1); }
+
+let ambInt;
+function startAmbience() {
+  if(ambInt) return;
+  ambInt=setInterval(()=>{
+    if(Math.random()<0.3) playTone(40+Math.random()*30,3,'sine',0.015);
+    if(Math.random()<0.2) playNoise(2,0.01);
+    if(Math.random()<0.1) playTone(200+Math.random()*400,0.5,'sawtooth',0.006);
+    if(Math.random()<0.05){ playTone(800,0.1,'square',0.02); setTimeout(()=>playTone(600,0.15,'square',0.015),200); }
+  },2500);
+}
+
+// ============================================================
+// TEXTURE GENERATOR
+// ============================================================
+function makeCanvasTex(w, h, drawFn) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  drawFn(x, w, h);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+const TEX = {};
+
+TEX.concrete = makeCanvasTex(512, 512, (x, w, h) => {
+  x.fillStyle = '#2a2622'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 8000; i++) {
+    const bri = 30 + Math.random() * 25;
+    x.fillStyle = `rgba(${bri},${bri-3},${bri-6},0.4)`;
+    x.fillRect(Math.random()*w, Math.random()*h, 1+Math.random()*3, 1+Math.random()*2);
+  }
+  for (let i = 0; i < 20; i++) {
+    x.strokeStyle = `rgba(0,0,0,${0.05+Math.random()*0.08})`;
+    x.lineWidth = 0.5;
+    x.beginPath();
+    x.moveTo(Math.random()*w, Math.random()*h);
+    x.lineTo(Math.random()*w, Math.random()*h);
+    x.stroke();
+  }
+});
+TEX.concrete.repeat.set(4, 4);
+
+TEX.concreteDark = makeCanvasTex(512, 512, (x, w, h) => {
+  x.fillStyle = '#1a1816'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 6000; i++) {
+    const bri = 18 + Math.random() * 18;
+    x.fillStyle = `rgba(${bri},${bri-2},${bri-4},0.35)`;
+    x.fillRect(Math.random()*w, Math.random()*h, 1+Math.random()*3, 1+Math.random()*2);
+  }
+});
+TEX.concreteDark.repeat.set(3, 3);
+
+TEX.brick = makeCanvasTex(512, 512, (x, w, h) => {
+  x.fillStyle = '#3a2d25'; x.fillRect(0, 0, w, h);
+  const bw = 64, bh = 32, gap = 3;
+  for (let row = 0; row < h / bh; row++) {
+    const off = (row % 2) * bw / 2;
+    for (let col = -1; col < w / bw + 1; col++) {
+      const bx = col * bw + off, by = row * bh;
+      const r = 50 + Math.random() * 30, g = 30 + Math.random() * 20, b = 20 + Math.random() * 15;
+      x.fillStyle = `rgb(${r},${g},${b})`;
+      x.fillRect(bx + gap/2, by + gap/2, bw - gap, bh - gap);
+      for (let n = 0; n < 15; n++) {
+        x.fillStyle = `rgba(0,0,0,${Math.random()*0.1})`;
+        x.fillRect(bx+gap/2+Math.random()*(bw-gap), by+gap/2+Math.random()*(bh-gap), 1+Math.random()*4, 1+Math.random()*2);
+      }
+    }
+  }
+  x.fillStyle = '#1a1512';
+  for (let row = 0; row <= h / bh; row++) x.fillRect(0, row * bh - gap/2, w, gap);
+  for (let row = 0; row < h / bh; row++) {
+    const off = (row % 2) * bw / 2;
+    for (let col = -1; col < w / bw + 2; col++) x.fillRect(col * bw + off - gap/2, row * bh, gap, bh);
+  }
+});
+TEX.brick.repeat.set(2, 2);
+
+TEX.metalFloor = makeCanvasTex(512, 512, (x, w, h) => {
+  x.fillStyle = '#252320'; x.fillRect(0, 0, w, h);
+  const ps = 128;
+  for (let px = 0; px < w; px += ps) {
+    for (let py = 0; py < h; py += ps) {
+      x.strokeStyle = 'rgba(60,55,50,0.3)'; x.strokeRect(px+2, py+2, ps-4, ps-4);
+      x.fillStyle = 'rgba(40,38,35,0.15)';
+      for (let d = 0; d < 6; d++) { x.beginPath(); x.arc(px+ps/2+Math.random()*20-10, py+ps/2+Math.random()*20-10, 2, 0, Math.PI*2); x.fill(); }
+    }
+  }
+  for (let i = 0; i < 3000; i++) {
+    x.fillStyle = `rgba(${35+Math.random()*20},${33+Math.random()*18},${30+Math.random()*15},0.3)`;
+    x.fillRect(Math.random()*w, Math.random()*h, 1+Math.random()*2, 1);
+  }
+});
+TEX.metalFloor.repeat.set(4, 4);
+
+TEX.tile = makeCanvasTex(512, 512, (x, w, h) => {
+  x.fillStyle = '#2d3035'; x.fillRect(0, 0, w, h);
+  const ts = 64;
+  for (let tx = 0; tx < w; tx += ts) {
+    for (let ty = 0; ty < h; ty += ts) {
+      const isAlt = ((tx/ts + ty/ts) % 2 === 0);
+      x.fillStyle = isAlt ? '#2a2d32' : '#32353a';
+      x.fillRect(tx+1, ty+1, ts-2, ts-2);
+      for (let n = 0; n < 8; n++) {
+        x.fillStyle = `rgba(${isAlt?20:40},${isAlt?22:42},${isAlt?28:48},0.2)`;
+        x.fillRect(tx+1+Math.random()*(ts-2), ty+1+Math.random()*(ts-2), 1+Math.random()*3, 1+Math.random()*2);
+      }
+    }
+  }
+  x.strokeStyle = 'rgba(20,22,25,0.5)';
+  for (let tx = 0; tx <= w; tx += ts) { x.beginPath(); x.moveTo(tx, 0); x.lineTo(tx, h); x.stroke(); }
+  for (let ty = 0; ty <= h; ty += ts) { x.beginPath(); x.moveTo(0, ty); x.lineTo(w, ty); x.stroke(); }
+});
+TEX.tile.repeat.set(3, 3);
+
+TEX.wood = makeCanvasTex(256, 256, (x, w, h) => {
+  x.fillStyle = '#3d3228'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 40; i++) {
+    x.strokeStyle = `rgba(${50+Math.random()*20},${35+Math.random()*15},${20+Math.random()*10},${0.1+Math.random()*0.15})`;
+    x.lineWidth = 1 + Math.random() * 2;
+    const y = Math.random() * h;
+    x.beginPath(); x.moveTo(0, y); x.lineTo(w, y + (Math.random()-0.5)*10); x.stroke();
+  }
+});
+
+TEX.rust = makeCanvasTex(256, 256, (x, w, h) => {
+  x.fillStyle = '#3a3025'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 4000; i++) {
+    const r = 40+Math.random()*40, g = 25+Math.random()*20, b = 15+Math.random()*10;
+    x.fillStyle = `rgba(${r},${g},${b},0.3)`;
+    x.fillRect(Math.random()*w, Math.random()*h, 1+Math.random()*4, 1+Math.random()*3);
+  }
+  for (let i = 0; i < 5; i++) {
+    x.fillStyle = `rgba(80,40,20,${0.05+Math.random()*0.1})`;
+    x.beginPath(); x.arc(Math.random()*w, Math.random()*h, 10+Math.random()*30, 0, Math.PI*2); x.fill();
+  }
+});
+
+TEX.blood = makeCanvasTex(128, 128, (x, w, h) => {
+  x.fillStyle = 'rgba(0,0,0,0)'; x.clearRect(0, 0, w, h);
+  for (let i = 0; i < 3; i++) {
+    const grd = x.createRadialGradient(w/2+Math.random()*20-10, h/2+Math.random()*20-10, 0, w/2, h/2, 50+Math.random()*20);
+    grd.addColorStop(0, 'rgba(80,10,10,0.6)');
+    grd.addColorStop(0.5, 'rgba(60,8,8,0.3)');
+    grd.addColorStop(1, 'rgba(40,5,5,0)');
+    x.fillStyle = grd;
+    x.beginPath(); x.ellipse(w/2, h/2, 50, 35, Math.random(), 0, Math.PI*2); x.fill();
+  }
+});
+
+TEX.poster = makeCanvasTex(256, 384, (x, w, h) => {
+  x.fillStyle = '#d4c8a0'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2000; i++) { x.fillStyle = `rgba(160,150,120,${Math.random()*0.3})`; x.fillRect(Math.random()*w, Math.random()*h, 1, 1); }
+  x.fillStyle = '#2a2520'; x.font = 'bold 28px Courier New'; x.textAlign = 'center';
+  x.fillText('PLAYTHING', w/2, 60);
+  x.fillText('FACTORY', w/2, 95);
+  x.font = '16px Courier New';
+  x.fillText('★ FUN FOR ALL ★', w/2, 140);
+  x.font = '14px Courier New';
+  x.fillText('Est. 1987', w/2, 175);
+  x.fillStyle = '#c44'; x.font = 'bold 20px Courier New';
+  x.fillText('CLOSED', w/2, 240);
+  x.strokeStyle = '#c44'; x.lineWidth = 2;
+  x.beginPath(); x.moveTo(60, 220); x.lineTo(w-60, 260); x.stroke();
+  x.fillStyle = 'rgba(80,10,10,0.15)';
+  x.beginPath(); x.arc(w*0.7, h*0.7, 30, 0, Math.PI*2); x.fill();
+  x.fillStyle = '#1a1512'; x.beginPath(); x.moveTo(w*0.7, h-20); x.lineTo(w, h); x.lineTo(w, h-40); x.fill();
+});
+
+TEX.safetyPoster = makeCanvasTex(256, 384, (x, w, h) => {
+  x.fillStyle = '#e8e0c0'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#c44'; x.fillRect(0, 0, w, 80);
+  x.fillStyle = '#fff'; x.font = 'bold 22px Courier New'; x.textAlign = 'center';
+  x.fillText('SAFETY FIRST', w/2, 50);
+  x.fillStyle = '#2a2520'; x.font = 'bold 72px Courier New';
+  x.fillText('0', w/2, 180);
+  x.font = '16px Courier New';
+  x.fillText('DAYS WITHOUT', w/2, 220);
+  x.fillText('INCIDENT', w/2, 245);
+  x.fillStyle = 'rgba(80,10,10,0.2)';
+  x.font = '12px Courier New';
+  x.fillText('(record: 0)', w/2, 280);
+});
+
+TEX.classifiedPoster = makeCanvasTex(256, 384, (x, w, h) => {
+  x.fillStyle = '#d0c8b0'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#1a1512'; x.font = 'bold 20px Courier New'; x.textAlign = 'center';
+  x.fillText('PROJECT', w/2, 50);
+  x.fillText('PLAYTHING', w/2, 80);
+  x.fillStyle = '#c44'; x.font = 'bold 28px Courier New';
+  x.fillText('[CLASSIFIED]', w/2, 140);
+  x.font = '14px Courier New'; x.fillStyle = '#555';
+  x.fillText('Level 5 Clearance Only', w/2, 180);
+  x.strokeStyle = '#c44'; x.lineWidth = 3;
+  x.strokeRect(20, 20, w-40, h-40);
+  for (let i = 0; i < 8; i++) {
+    x.fillStyle = 'rgba(0,0,0,0.6)'; x.fillRect(30, 200+i*22, w-60, 12);
+  }
+});
+
+TEX.exitSign = makeCanvasTex(256, 128, (x, w, h) => {
+  x.fillStyle = '#1a3a1a'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#4c4'; x.font = 'bold 48px Courier New'; x.textAlign = 'center';
+  x.fillText('EXIT →', w/2, 75);
+  x.strokeStyle = '#4c4'; x.lineWidth = 3; x.strokeRect(5, 5, w-10, h-10);
+});
+
+// Normal maps from canvas
+function makeNormalFromHeight(tex, strength=2) {
+  const c = tex.image;
+  const w = c.width, h = c.height;
+  const nc = document.createElement('canvas');
+  nc.width = w; nc.height = h;
+  const sx = c.getContext('2d'), nx = nc.getContext('2d');
+  const src = sx.getImageData(0,0,w,h).data;
+  const dst = nx.createImageData(w,h);
+  for (let y=0; y<h; y++) {
+    for (let x=0; x<w; x++) {
+      const idx = (y*w+x)*4;
+      const l = src[((y)*w+Math.max(0,x-1))*4]/255;
+      const r = src[((y)*w+Math.min(w-1,x+1))*4]/255;
+      const u = src[(Math.max(0,y-1)*w+x)*4]/255;
+      const d = src[(Math.min(h-1,y+1)*w+x)*4]/255;
+      dst.data[idx]   = ((l-r)*strength*0.5+0.5)*255;
+      dst.data[idx+1] = ((u-d)*strength*0.5+0.5)*255;
+      dst.data[idx+2] = 255;
+      dst.data[idx+3] = 255;
+    }
+  }
+  nx.putImageData(dst,0,0);
+  const nt = new THREE.CanvasTexture(nc);
+  nt.wrapS = nt.wrapT = THREE.RepeatWrapping;
+  nt.repeat.copy(tex.repeat);
+  return nt;
+}
+
+const NORM = {};
+NORM.concrete = makeNormalFromHeight(TEX.concrete, 3);
+NORM.brick = makeNormalFromHeight(TEX.brick, 4);
+NORM.metalFloor = makeNormalFromHeight(TEX.metalFloor, 2);
+NORM.tile = makeNormalFromHeight(TEX.tile, 2);
+
+// ============================================================
+// MATERIALS
+// ============================================================
+const MAT = {};
+MAT.concrete = new THREE.MeshStandardMaterial({ map: TEX.concrete, normalMap: NORM.concrete, roughness: 0.9, metalness: 0.05 });
+MAT.concreteDark = new THREE.MeshStandardMaterial({ map: TEX.concreteDark, roughness: 0.95, metalness: 0.02 });
+MAT.brick = new THREE.MeshStandardMaterial({ map: TEX.brick, normalMap: NORM.brick, roughness: 0.85, metalness: 0.05 });
+MAT.metalFloor = new THREE.MeshStandardMaterial({ map: TEX.metalFloor, normalMap: NORM.metalFloor, roughness: 0.6, metalness: 0.4 });
+MAT.tile = new THREE.MeshStandardMaterial({ map: TEX.tile, normalMap: NORM.tile, roughness: 0.7, metalness: 0.1 });
+MAT.wood = new THREE.MeshStandardMaterial({ map: TEX.wood, roughness: 0.8, metalness: 0.05 });
+MAT.rust = new THREE.MeshStandardMaterial({ map: TEX.rust, roughness: 0.85, metalness: 0.3 });
+MAT.metal = new THREE.MeshStandardMaterial({ color: 0x3a3835, roughness: 0.5, metalness: 0.7 });
+MAT.darkMetal = new THREE.MeshStandardMaterial({ color: 0x252220, roughness: 0.6, metalness: 0.6 });
+MAT.glass = new THREE.MeshStandardMaterial({ color: 0x88aacc, transparent: true, opacity: 0.2, roughness: 0.1, metalness: 0.9 });
+MAT.redLight = new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xff2222, emissiveIntensity: 2 });
+MAT.greenLight = new THREE.MeshStandardMaterial({ color: 0x22ff22, emissive: 0x22ff22, emissiveIntensity: 2 });
+MAT.skin = new THREE.MeshStandardMaterial({ color: 0xc8b898, roughness: 0.8 });
+MAT.darkCloth = new THREE.MeshStandardMaterial({ color: 0x1a1815, roughness: 0.95 });
+MAT.redEye = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5 });
+MAT.blood = new THREE.MeshStandardMaterial({ map: TEX.blood, transparent: true, roughness: 0.9, depthWrite: false });
+
+// ============================================================
+// GAME STATE
+// ============================================================
+const GS = {
+  started: false, paused: false, time: 0,
+  velocity: new THREE.Vector3(),
+  moveForward: false, moveBackward: false, moveLeft: false, moveRight: false,
+  canJump: false, isSprinting: false,
+  currentRoom: 0,
+  inventory: [null,null,null,null,null], selectedSlot: 0,
+  puzzlesSolved: new Set(), doorsUnlocked: new Set(), itemsCollected: new Set(), notesRead: new Set(),
+  flashlight: { on: true, battery: 100, intensity: 1 },
+  nearInteractable: null,
+  dialogue: { active: false, text: '', charIndex: 0, timer: 0, fullText: '', callback: null },
+  puzzleActive: false, currentPuzzle: null,
+  monster: { active: false, mesh: null, speed: 1.5, state: 'idle', chaseTimer: 0, visible: false },
+  footstepTimer: 0,
+  roomGroups: [],
+  interactables3D: [],
+  doors3D: [],
+  dustParticles: null,
+  sparkSystems: [],
+  flickerLights: [],
+};
+
+// ============================================================
+// FLASHLIGHT
+// ============================================================
+const flashlight = new THREE.SpotLight(0xfff0c8, 3, 25, Math.PI * 0.22, 0.4, 1.5);
+flashlight.castShadow = true;
+flashlight.shadow.mapSize.set(1024, 1024);
+flashlight.shadow.camera.near = 0.1;
+flashlight.shadow.camera.far = 25;
+flashlight.shadow.bias = -0.002;
+const flTarget = new THREE.Object3D();
+scene.add(flTarget);
+flashlight.target = flTarget;
+camera.add(flashlight);
+flashlight.position.set(0.3, -0.15, -0.3);
+scene.add(camera);
+
+// ============================================================
+// PROP BUILDERS
+// ============================================================
+function makeBox(w, h, d, mat, pos, castShadow=true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.copy(pos);
+  m.castShadow = castShadow;
+  m.receiveShadow = true;
+  return m;
+}
+
+function makeCylinder(rT, rB, h, mat, pos, segs=16) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rT, rB, h, segs), mat);
+  m.position.copy(pos);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+function makeBarrel(pos, color=0x3a3025) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.3 });
+  g.add(makeCylinder(0.28, 0.3, 0.9, mat, new THREE.Vector3(0, 0.45, 0)));
+  const bandMat = MAT.metal;
+  g.add(makeCylinder(0.305, 0.305, 0.04, bandMat, new THREE.Vector3(0, 0.2, 0), 24));
+  g.add(makeCylinder(0.305, 0.305, 0.04, bandMat, new THREE.Vector3(0, 0.7, 0), 24));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeCrate(pos, size=1) {
+  const g = new THREE.Group();
+  const s = 0.5 * size;
+  g.add(makeBox(s, s, s, MAT.wood, new THREE.Vector3(0, s/2, 0)));
+  const edge = MAT.rust;
+  const t = 0.03;
+  g.add(makeBox(s+0.02, t, t, edge, new THREE.Vector3(0, s-t/2, s/2-t/2)));
+  g.add(makeBox(s+0.02, t, t, edge, new THREE.Vector3(0, s-t/2, -s/2+t/2)));
+  g.add(makeBox(s+0.02, t, t, edge, new THREE.Vector3(0, t/2, s/2-t/2)));
+  g.add(makeBox(s+0.02, t, t, edge, new THREE.Vector3(0, t/2, -s/2+t/2)));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeDesk(pos) {
+  const g = new THREE.Group();
+  g.add(makeBox(1.4, 0.05, 0.7, MAT.wood, new THREE.Vector3(0, 0.75, 0)));
+  g.add(makeBox(0.05, 0.7, 0.05, MAT.wood, new THREE.Vector3(-0.65, 0.375, -0.3)));
+  g.add(makeBox(0.05, 0.7, 0.05, MAT.wood, new THREE.Vector3(0.65, 0.375, -0.3)));
+  g.add(makeBox(0.05, 0.7, 0.05, MAT.wood, new THREE.Vector3(-0.65, 0.375, 0.3)));
+  g.add(makeBox(0.05, 0.7, 0.05, MAT.wood, new THREE.Vector3(0.65, 0.375, 0.3)));
+  g.add(makeBox(1.3, 0.4, 0.02, MAT.wood, new THREE.Vector3(0, 0.55, -0.34)));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeChair(pos) {
+  const g = new THREE.Group();
+  const cm = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.9 });
+  g.add(makeBox(0.4, 0.04, 0.4, cm, new THREE.Vector3(0, 0.45, 0)));
+  g.add(makeBox(0.4, 0.5, 0.04, cm, new THREE.Vector3(0, 0.7, -0.18)));
+  g.add(makeBox(0.03, 0.45, 0.03, cm, new THREE.Vector3(-0.17, 0.225, 0.17)));
+  g.add(makeBox(0.03, 0.45, 0.03, cm, new THREE.Vector3(0.17, 0.225, 0.17)));
+  g.add(makeBox(0.03, 0.45, 0.03, cm, new THREE.Vector3(-0.17, 0.225, -0.17)));
+  g.add(makeBox(0.03, 0.45, 0.03, cm, new THREE.Vector3(0.17, 0.225, -0.17)));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeMachine(pos, w=1.5, h=2.5, d=1.2, label='') {
+  const g = new THREE.Group();
+  g.add(makeBox(w, h, d, MAT.rust, new THREE.Vector3(0, h/2, 0)));
+  g.add(makeBox(w+0.05, 0.05, d+0.05, MAT.metal, new THREE.Vector3(0, h, 0)));
+  g.add(makeBox(w*0.3, 0.3, 0.02, MAT.darkMetal, new THREE.Vector3(0, h*0.8, d/2+0.02)));
+  const red = new THREE.Mesh(new THREE.SphereGeometry(0.03), MAT.redLight);
+  red.position.set(w*0.3, h*0.85, d/2+0.02);
+  g.add(red);
+  const green = new THREE.Mesh(new THREE.SphereGeometry(0.03), MAT.greenLight);
+  green.position.set(w*0.3-0.1, h*0.85, d/2+0.02);
+  green.visible = false;
+  g.add(green);
+  g.position.copy(pos);
+  return g;
+}
+
+function makeConveyor(pos, length=3) {
+  const g = new THREE.Group();
+  g.add(makeBox(length, 0.1, 0.8, MAT.darkMetal, new THREE.Vector3(0, 0.6, 0)));
+  g.add(makeBox(0.1, 0.6, 0.9, MAT.metal, new THREE.Vector3(-length/2, 0.3, 0)));
+  g.add(makeBox(0.1, 0.6, 0.9, MAT.metal, new THREE.Vector3(length/2, 0.3, 0)));
+  const beltMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95 });
+  g.add(makeBox(length-0.12, 0.02, 0.7, beltMat, new THREE.Vector3(0, 0.66, 0)));
+  for (let i = -length/2+0.3; i < length/2; i += 0.4) {
+    g.add(makeBox(0.02, 0.01, 0.7, MAT.metal, new THREE.Vector3(i, 0.68, 0)));
+  }
+  g.position.copy(pos);
+  return g;
+}
+
+function makePipe(start, end, radius=0.04) {
+  const dir = new THREE.Vector3().subVectors(end, start);
+  const len = dir.length();
+  const m = makeCylinder(radius, radius, len, MAT.metal, new THREE.Vector3(), 8);
+  m.position.copy(start).add(dir.multiplyScalar(0.5));
+  if (Math.abs(dir.normalize().y) < 0.99) {
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+  }
+  return m;
+}
+
+function makeCabinet(pos, h=2) {
+  const g = new THREE.Group();
+  const cm = new THREE.MeshStandardMaterial({ color: 0x33291f, roughness: 0.85 });
+  g.add(makeBox(0.6, h, 0.4, cm, new THREE.Vector3(0, h/2, 0)));
+  g.add(makeBox(0.02, 0.04, 0.02, MAT.metal, new THREE.Vector3(0, h*0.35, 0.21)));
+  g.add(makeBox(0.02, 0.04, 0.02, MAT.metal, new THREE.Vector3(0, h*0.75, 0.21)));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeSafe(pos) {
+  const g = new THREE.Group();
+  const sm = new THREE.MeshStandardMaterial({ color: 0x3a3530, roughness: 0.6, metalness: 0.5 });
+  g.add(makeBox(0.7, 0.7, 0.5, sm, new THREE.Vector3(0, 0.35, 0)));
+  g.add(makeCylinder(0.12, 0.12, 0.03, MAT.metal, new THREE.Vector3(0, 0.35, 0.27), 24));
+  g.add(makeCylinder(0.04, 0.04, 0.04, MAT.darkMetal, new THREE.Vector3(0, 0.35, 0.28), 12));
+  g.add(makeBox(0.04, 0.04, 0.02, MAT.metal, new THREE.Vector3(0.2, 0.35, 0.26)));
+  g.position.copy(pos);
+  return g;
+}
+
+function makeShelf(pos, h=3) {
+  const g = new THREE.Group();
+  g.add(makeBox(1.2, 0.04, 0.5, MAT.wood, new THREE.Vector3(0, 0.02, 0)));
+  g.add(makeBox(0.04, h, 0.04, MAT.metal, new THREE.Vector3(-0.58, h/2, -0.23)));
+  g.add(makeBox(0.04, h, 0.04, MAT.metal, new THREE.Vector3(0.58, h/2, -0.23)));
+  g.add(makeBox(0.04, h, 0.04, MAT.metal, new THREE.Vector3(-0.58, h/2, 0.23)));
+  g.add(makeBox(0.04, h, 0.04, MAT.metal, new THREE.Vector3(0.58, h/2, 0.23)));
+  for (let sh = 0.6; sh < h; sh += 0.7) {
+    g.add(makeBox(1.16, 0.03, 0.46, MAT.wood, new THREE.Vector3(0, sh, 0)));
+    if (Math.random() > 0.3) {
+      const bh = 0.15 + Math.random() * 0.2;
+      g.add(makeBox(0.12+Math.random()*0.1, bh, 0.15, MAT.rust, new THREE.Vector3(-0.3+Math.random()*0.6, sh+bh/2+0.02, 0)));
+    }
+  }
+  g.position.copy(pos);
+  return g;
+}
+
+function makeToyFigure(pos, scale=1) {
+  const g = new THREE.Group();
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.18*scale, 16, 16), MAT.skin);
+  head.position.y = 1.5*scale; head.castShadow = true;
+  g.add(head);
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.04*scale, 8, 8), MAT.redEye);
+  eyeL.position.set(-0.06*scale, 1.53*scale, 0.15*scale);
+  g.add(eyeL);
+  const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.04*scale, 8, 8), MAT.redEye);
+  eyeR.position.set(0.06*scale, 1.53*scale, 0.15*scale);
+  g.add(eyeR);
+  g.add(makeBox(0.3*scale, 0.6*scale, 0.2*scale, MAT.darkCloth, new THREE.Vector3(0, 1.0*scale, 0)));
+  g.add(makeBox(0.1*scale, 0.5*scale, 0.1*scale, MAT.darkCloth, new THREE.Vector3(-0.25*scale, 1.05*scale, 0)));
+  g.add(makeBox(0.1*scale, 0.5*scale, 0.1*scale, MAT.darkCloth, new THREE.Vector3(0.25*scale, 1.05*scale, 0)));
+  g.add(makeBox(0.12*scale, 0.55*scale, 0.12*scale, MAT.darkCloth, new THREE.Vector3(-0.1*scale, 0.4*scale, 0)));
+  g.add(makeBox(0.12*scale, 0.55*scale, 0.12*scale, MAT.darkCloth, new THREE.Vector3(0.1*scale, 0.4*scale, 0)));
+  g.position.copy(pos);
+  return g;
+}
+
+function makePoster3D(pos, tex, rot=0) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.9), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+  m.position.copy(pos);
+  m.rotation.y = rot;
+  m.receiveShadow = true;
+  return m;
+}
+
+function makeBloodDecal(pos, size=1) {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(size, size*0.7),
+    new THREE.MeshStandardMaterial({ map: TEX.blood, transparent: true, roughness: 0.9, depthWrite: false })
+  );
+  m.rotation.x = -Math.PI/2;
+  m.position.copy(pos);
+  m.position.y = 0.01;
+  return m;
+}
+
+function makeVent(pos, rot=0) {
+  const g = new THREE.Group();
+  g.add(makeBox(0.6, 0.3, 0.05, MAT.darkMetal, new THREE.Vector3(0, 0, 0)));
+  for (let i = -0.25; i <= 0.25; i += 0.07) {
+    g.add(makeBox(0.55, 0.01, 0.04, MAT.metal, new THREE.Vector3(0, i, 0.01)));
+  }
+  g.position.copy(pos);
+  g.rotation.y = rot;
+  return g;
+}
+
+function makeDoorFrame(pos, rot=0, color=0x4a4035) {
+  const g = new THREE.Group();
+  const dm = new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.3 });
+  g.add(makeBox(0.1, 2.4, 0.3, dm, new THREE.Vector3(-0.55, 1.2, 0)));
+  g.add(makeBox(0.1, 2.4, 0.3, dm, new THREE.Vector3(0.55, 1.2, 0)));
+  g.add(makeBox(1.2, 0.1, 0.3, dm, new THREE.Vector3(0, 2.4, 0)));
+  const door = makeBox(1.0, 2.3, 0.08, dm, new THREE.Vector3(0, 1.15, 0));
+  g.add(door);
+  g.add(makeCylinder(0.025, 0.025, 0.05, MAT.metal, new THREE.Vector3(0.35, 1.0, 0.06), 8));
+  g.position.copy(pos);
+  g.rotation.y = rot;
+  g.userData.doorMesh = door;
+  return g;
+}
+
+function addLight(pos, color=0xffa050, intensity=1, dist=8, flicker=true) {
+  const pl = new THREE.PointLight(color, intensity, dist);
+  pl.position.copy(pos);
+  pl.castShadow = true;
+  pl.shadow.mapSize.set(512, 512);
+  pl.shadow.bias = -0.003;
+  scene.add(pl);
+  if (flicker) GS.flickerLights.push({ light: pl, base: intensity, speed: 2+Math.random()*3, offset: Math.random()*10 });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 }));
+  bulb.position.copy(pos);
+  scene.add(bulb);
+  return pl;
+}
+
+// ============================================================
+// ROOM BUILDER
+// ============================================================
+function buildRoom(idx, rw, rd, floorMat, wallMat, ceilMat) {
+  const g = new THREE.Group();
+  g.userData.roomIndex = idx;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(rw, rd), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  g.add(floor);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(rw, rd), ceilMat || MAT.concreteDark);
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.y = 3.2;
+  ceil.receiveShadow = true;
+  g.add(ceil);
+  const wallH = 3.2;
+  const addWall = (w, h, pos, rotY=0) => {
+    const wm = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
+    wm.position.copy(pos);
+    wm.rotation.y = rotY;
+    wm.receiveShadow = true;
+    g.add(wm);
+  };
+  addWall(rw, wallH, new THREE.Vector3(0, wallH/2, -rd/2), 0);
+  addWall(rw, wallH, new THREE.Vector3(0, wallH/2, rd/2), Math.PI);
+  addWall(rd, wallH, new THREE.Vector3(-rw/2, wallH/2, 0), Math.PI/2);
+  addWall(rd, wallH, new THREE.Vector3(rw/2, wallH/2, 0), -Math.PI/2);
+  return g;
+}
+
+// ============================================================
+// BUILD ALL ROOMS
+// ============================================================
+const ROOM_OFFSETS = [
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(20, 0, 0),
+  new THREE.Vector3(40, 0, 0),
+  new THREE.Vector3(60, 0, 0),
+];
+
+function buildAllRooms() {
+  // ROOM 0: ENTRANCE LOBBY (10x6)
+  const r0 = buildRoom(0, 10, 6, MAT.concrete, MAT.brick, MAT.concreteDark);
+  r0.position.copy(ROOM_OFFSETS[0]);
+  r0.add(makeDesk(new THREE.Vector3(-2, 0, 0)));
+  r0.add(makeChair(new THREE.Vector3(-2, 0, 0.6)));
+  r0.add(makeCabinet(new THREE.Vector3(-4.5, 0, -2)));
+  r0.add(makeConveyor(new THREE.Vector3(2, 0, 1.5)));
+  r0.add(makeCrate(new THREE.Vector3(3.5, 0, 1.5)));
+  r0.add(makeCrate(new THREE.Vector3(3.8, 0, 1)));
+  r0.add(makeBarrel(new THREE.Vector3(4, 0, -2)));
+  r0.add(makeBarrel(new THREE.Vector3(4.3, 0, -1.5)));
+  r0.add(makePoster3D(new THREE.Vector3(0, 2, -2.98), TEX.poster));
+  r0.add(makeVent(new THREE.Vector3(1.5, 2.8, -2.97)));
+  r0.add(makeBloodDecal(new THREE.Vector3(1, 0, 2), 1.2));
+  r0.add(makeBloodDecal(new THREE.Vector3(-1, 0, -1), 0.6));
+  // Pipes
+  r0.add(makePipe(new THREE.Vector3(-3, 0, -2.95), new THREE.Vector3(-3, 3.2, -2.95)));
+  r0.add(makePipe(new THREE.Vector3(4.5, 0, -2.95), new THREE.Vector3(4.5, 3.2, -2.95)));
+  r0.add(makePipe(new THREE.Vector3(-4.95, 2.8, -2.5), new THREE.Vector3(-4.95, 2.8, 2.5)));
+  // Scattered toy parts
+  const toyArm = makeBox(0.2, 0.06, 0.06, MAT.skin, new THREE.Vector3(1.5, 0.03, 1.8));
+  toyArm.rotation.z = 0.3; r0.add(toyArm);
+  const toyHead = new THREE.Mesh(new THREE.SphereGeometry(0.08), MAT.skin);
+  toyHead.position.set(1.8, 0.08, 2.1); r0.add(toyHead);
+  addLight(ROOM_OFFSETS[0].clone().add(new THREE.Vector3(-1, 2.8, -1)), 0xffc868, 0.5, 6, true);
+  addLight(ROOM_OFFSETS[0].clone().add(new THREE.Vector3(2, 2.8, 0)), 0xffb050, 0.3, 5, true);
+  scene.add(r0);
+  GS.roomGroups.push(r0);
+
+  // Interactables for room 0
+  GS.interactables3D.push(
+    { id:'lobby_note', type:'note', roomIdx:0, pos:new THREE.Vector3(-1.8,0.78,0), radius:1.5,
+      text:'DAY 312: The toys... they moved again last night. I heard them in the vents. Management says it\'s rats. It\'s not rats.\n\nI\'m leaving the keycard in the cabinet. If anyone finds this - GET OUT.' },
+    { id:'lobby_cabinet', type:'container', roomIdx:0, pos:new THREE.Vector3(-4.5,1,0-2), radius:1.5,
+      contains:'keycard_production', label:'Rusty Cabinet' },
+    { id:'lobby_monitor', type:'examine', roomIdx:0, pos:new THREE.Vector3(-1.5,0.78,-0.3), radius:1.5,
+      text:'An old CRT monitor. The screen shows static, but occasionally you catch glimpses of the production floor camera feed. Something tall moves between the machines.' },
+  );
+  GS.doors3D.push(
+    { id:'door_production', roomIdx:0, pos:ROOM_OFFSETS[0].clone().add(new THREE.Vector3(4.95,0,0)),
+      targetRoom:1, targetPos:new THREE.Vector3(20-4.5,1.7,0), locked:true, requires:'keycard_production',
+      frame: makeDoorFrame(ROOM_OFFSETS[0].clone().add(new THREE.Vector3(4.95,0,0)), -Math.PI/2) },
+  );
+  scene.add(GS.doors3D[0].frame);
+
+  // ROOM 1: PRODUCTION FLOOR (14x8)
+  const r1 = buildRoom(1, 14, 8, MAT.metalFloor, MAT.brick, MAT.concreteDark);
+  r1.position.copy(ROOM_OFFSETS[1]);
+  r1.add(makeMachine(new THREE.Vector3(-4, 0, -2), 1.5, 2.5, 1.2, 'MOLD PRESS A'));
+  r1.add(makeMachine(new THREE.Vector3(-1.5, 0, -2), 1.5, 2.5, 1.2, 'MOLD PRESS B'));
+  r1.add(makeMachine(new THREE.Vector3(2, 0, -1.5), 2, 3, 1.5, 'PAINT STATION'));
+  r1.add(makeConveyor(new THREE.Vector3(-2, 0, 1)));
+  r1.add(makeConveyor(new THREE.Vector3(3, 0, 1)));
+  r1.add(makeBarrel(new THREE.Vector3(5, 0, -3)));
+  r1.add(makeBarrel(new THREE.Vector3(5.5, 0, -2.5), 0x4a2020));
+  r1.add(makeBarrel(new THREE.Vector3(5.2, 0, -2)));
+  r1.add(makeCrate(new THREE.Vector3(-6, 0, 2.5)));
+  r1.add(makeCrate(new THREE.Vector3(-5.5, 0, 3)));
+  r1.add(makePoster3D(new THREE.Vector3(-6.5, 2, -3.97), TEX.safetyPoster));
+  r1.add(makeVent(new THREE.Vector3(3, 2.8, -3.97)));
+  r1.add(makeBloodDecal(new THREE.Vector3(2, 0, 2.5), 1.5));
+  r1.add(makePipe(new THREE.Vector3(0, 0, -3.95), new THREE.Vector3(0, 3.2, -3.95)));
+  r1.add(makePipe(new THREE.Vector3(6, 0, -3.95), new THREE.Vector3(6, 3.2, -3.95)));
+  // Fuse box
+  const fuseBox = makeBox(0.5, 0.6, 0.15, MAT.rust, new THREE.Vector3(6.2, 1.5, -3.85));
+  r1.add(fuseBox);
+  addLight(ROOM_OFFSETS[1].clone().add(new THREE.Vector3(-3, 2.8, 0)), 0xffa050, 0.4, 8, true);
+  addLight(ROOM_OFFSETS[1].clone().add(new THREE.Vector3(2, 2.8, 0)), 0xff5030, 0.3, 7, true);
+  addLight(ROOM_OFFSETS[1].clone().add(new THREE.Vector3(6, 2.8, -2)), 0xffc868, 0.2, 5, true);
+  scene.add(r1);
+  GS.roomGroups.push(r1);
+
+  GS.interactables3D.push(
+    { id:'prod_fusebox', type:'puzzle', roomIdx:1, pos:ROOM_OFFSETS[1].clone().add(new THREE.Vector3(6.2,1.5,-3.85)), radius:2,
+      puzzleType:'wire', label:'Fuse Box' },
+    { id:'prod_note', type:'note', roomIdx:1, pos:ROOM_OFFSETS[1].clone().add(new THREE.Vector3(2,0.7,1)), radius:1.5,
+      text:'The wire colors matter. Red to red, blue to blue. But the green wire... don\'t connect the green wire.\n\nLast guy who did that... well, you can see what\'s left of him on the floor.' },
+    { id:'prod_locker', type:'container', roomIdx:1, pos:ROOM_OFFSETS[1].clone().add(new THREE.Vector3(5.5,1,0)), radius:1.5,
+      contains:'wrench', label:'Tool Locker' },
+  );
+  GS.doors3D.push(
+    { id:'door_lobby_back', roomIdx:1, pos:ROOM_OFFSETS[1].clone().add(new THREE.Vector3(-6.95,0,0)),
+      targetRoom:0, targetPos:new THREE.Vector3(4,1.7,0), locked:false,
+      frame: makeDoorFrame(ROOM_OFFSETS[1].clone().add(new THREE.Vector3(-6.95,0,0)), Math.PI/2) },
+    { id:'door_testing', roomIdx:1, pos:ROOM_OFFSETS[1].clone().add(new THREE.Vector3(6.95,0,0)),
+      targetRoom:2, targetPos:new THREE.Vector3(40-5.5,1.7,0), locked:true, requires:'puzzle:prod_fusebox',
+      frame: makeDoorFrame(ROOM_OFFSETS[1].clone().add(new THREE.Vector3(6.95,0,0)), -Math.PI/2) },
+  );
+  scene.add(GS.doors3D[1].frame);
+  scene.add(GS.doors3D[2].frame);
+
+  // ROOM 2: TESTING LAB (12x8)
+  const r2 = buildRoom(2, 12, 8, MAT.tile, MAT.concrete, MAT.concreteDark);
+  r2.position.copy(ROOM_OFFSETS[2]);
+  const labTable1 = makeDesk(new THREE.Vector3(-3, 0, -1));
+  r2.add(labTable1);
+  const labTable2 = makeDesk(new THREE.Vector3(-3, 0, 2));
+  r2.add(labTable2);
+  // Glass case with toy prototype
+  const glassCase = new THREE.Group();
+  glassCase.add(makeBox(1, 2.5, 1, MAT.glass, new THREE.Vector3(0, 1.25, 0)));
+  const toyProto = makeToyFigure(new THREE.Vector3(0, 0, 0), 0.8);
+  glassCase.add(toyProto);
+  glassCase.position.set(0, 0, -2);
+  r2.add(glassCase);
+  r2.add(makeSafe(new THREE.Vector3(4, 0, 1)));
+  r2.add(makeCabinet(new THREE.Vector3(3, 0, -3)));
+  r2.add(makePoster3D(new THREE.Vector3(1.5, 2, -3.97), TEX.classifiedPoster));
+  r2.add(makeVent(new THREE.Vector3(-1, 2.8, -3.97)));
+  r2.add(makeBloodDecal(new THREE.Vector3(-1, 0, 3), 1));
+  r2.add(makePipe(new THREE.Vector3(5, 0, -3.95), new THREE.Vector3(5, 3.2, -3.95)));
+  addLight(ROOM_OFFSETS[2].clone().add(new THREE.Vector3(-2, 2.8, 0)), 0x88bbff, 0.4, 7, true);
+  addLight(ROOM_OFFSETS[2].clone().add(new THREE.Vector3(2, 2.8, 0)), 0x88bbff, 0.5, 8, false);
+  addLight(ROOM_OFFSETS[2].clone().add(new THREE.Vector3(4, 2.8, -2)), 0xff5050, 0.3, 5, true);
+  scene.add(r2);
+  GS.roomGroups.push(r2);
+
+  GS.interactables3D.push(
+    { id:'lab_safe', type:'puzzle', roomIdx:2, pos:ROOM_OFFSETS[2].clone().add(new THREE.Vector3(4,0.35,1)), radius:2,
+      puzzleType:'symbol', label:'Heavy Safe' },
+    { id:'lab_note', type:'note', roomIdx:2, pos:ROOM_OFFSETS[2].clone().add(new THREE.Vector3(-2.5,0.78,-1)), radius:1.5,
+      text:'SUBJECT LOG #47: The prototype responds to stimuli now. It watches us through the glass. Dr. Chen says it\'s just pattern recognition, but I\'ve seen it smile.\n\nThe safe code uses the symbols on the walls. Look carefully.\nCode: ● ◆ ★ ▲' },
+    { id:'lab_display', type:'examine', roomIdx:2, pos:ROOM_OFFSETS[2].clone().add(new THREE.Vector3(0,1,-2)), radius:2,
+      text:'A glass display case. Inside is a partially assembled toy figure, roughly 7 feet tall. Its eyes are painted with unsettling detail - they almost seem to follow you.\n\nA placard reads: "PROTOTYPE 1 - DO NOT REMOVE"' },
+  );
+  GS.doors3D.push(
+    { id:'door_prod_back', roomIdx:2, pos:ROOM_OFFSETS[2].clone().add(new THREE.Vector3(-5.95,0,0)),
+      targetRoom:1, targetPos:new THREE.Vector3(20+6,1.7,0), locked:false,
+      frame: makeDoorFrame(ROOM_OFFSETS[2].clone().add(new THREE.Vector3(-5.95,0,0)), Math.PI/2) },
+    { id:'door_warehouse', roomIdx:2, pos:ROOM_OFFSETS[2].clone().add(new THREE.Vector3(5.95,0,0)),
+      targetRoom:3, targetPos:new THREE.Vector3(60-8,1.7,0), locked:true, requires:'master_key',
+      frame: makeDoorFrame(ROOM_OFFSETS[2].clone().add(new THREE.Vector3(5.95,0,0)), -Math.PI/2, 0x5a5045) },
+  );
+  scene.add(GS.doors3D[3].frame);
+  scene.add(GS.doors3D[4].frame);
+
+  // ROOM 3: WAREHOUSE (18x10)
+  const r3 = buildRoom(3, 18, 10, MAT.concrete, MAT.brick, MAT.concreteDark);
+  r3.position.copy(ROOM_OFFSETS[3]);
+  r3.add(makeShelf(new THREE.Vector3(-7, 0, -3)));
+  r3.add(makeShelf(new THREE.Vector3(-5, 0, -3)));
+  r3.add(makeShelf(new THREE.Vector3(-3, 0, -3)));
+  r3.add(makeCrate(new THREE.Vector3(-1, 0, 2), 1.2));
+  r3.add(makeCrate(new THREE.Vector3(0, 0, 2.5), 1));
+  r3.add(makeCrate(new THREE.Vector3(-0.5, 0.6, 2), 0.8));
+  r3.add(makeBarrel(new THREE.Vector3(2, 0, -3)));
+  r3.add(makeBarrel(new THREE.Vector3(2.5, 0, -3.5), 0x4a2020));
+  r3.add(makeBarrel(new THREE.Vector3(2.2, 0, -2.5)));
+  // Generator
+  const gen = makeMachine(new THREE.Vector3(4, 0, -2), 1.5, 1.8, 1, 'GENERATOR');
+  r3.add(gen);
+  // Loading dock
+  r3.add(makeBox(3, 3, 0.2, MAT.darkMetal, new THREE.Vector3(7, 1.5, 0)));
+  r3.add(makePoster3D(new THREE.Vector3(5, 2, -4.97), TEX.exitSign, 0));
+  r3.add(makeBloodDecal(new THREE.Vector3(-2, 0, 0), 2));
+  r3.add(makeBloodDecal(new THREE.Vector3(4, 0, 3), 1.2));
+  r3.add(makePipe(new THREE.Vector3(-5, 0, -4.95), new THREE.Vector3(-5, 3.2, -4.95)));
+  r3.add(makePipe(new THREE.Vector3(7, 0, -4.95), new THREE.Vector3(7, 3.2, -4.95)));
+  r3.add(makeVent(new THREE.Vector3(0, 2.8, -4.97)));
+  addLight(ROOM_OFFSETS[3].clone().add(new THREE.Vector3(-4, 2.8, 0)), 0xff3030, 0.5, 10, true);
+  addLight(ROOM_OFFSETS[3].clone().add(new THREE.Vector3(2, 2.8, 0)), 0xffa050, 0.3, 8, true);
+  addLight(ROOM_OFFSETS[3].clone().add(new THREE.Vector3(7, 2.8, 0)), 0xffc868, 0.4, 7, true);
+  scene.add(r3);
+  GS.roomGroups.push(r3);
+
+  GS.interactables3D.push(
+    { id:'wh_generator', type:'puzzle', roomIdx:3, pos:ROOM_OFFSETS[3].clone().add(new THREE.Vector3(4,1,-2)), radius:2.5,
+      puzzleType:'pipe', label:'Generator Fuel System' },
+    { id:'wh_note', type:'note', roomIdx:3, pos:ROOM_OFFSETS[3].clone().add(new THREE.Vector3(-0.5,0.3,2)), radius:1.5,
+      text:'If you\'re reading this, you made it further than most. The loading dock door needs the generator running. Connect the fuel pipes correctly.\n\nAnd whatever you do... don\'t look behind you when the lights go out. Just run.\n- M.R.' },
+    { id:'wh_dock_lever', type:'lever', roomIdx:3, pos:ROOM_OFFSETS[3].clone().add(new THREE.Vector3(7.5,1.2,2)), radius:2,
+      requires:'puzzle:wh_generator', label:'Dock Door Lever' },
+  );
+  GS.doors3D.push(
+    { id:'door_lab_back', roomIdx:3, pos:ROOM_OFFSETS[3].clone().add(new THREE.Vector3(-8.95,0,0)),
+      targetRoom:2, targetPos:new THREE.Vector3(40+5,1.7,0), locked:false,
+      frame: makeDoorFrame(ROOM_OFFSETS[3].clone().add(new THREE.Vector3(-8.95,0,0)), Math.PI/2) },
+    { id:'door_escape', roomIdx:3, pos:ROOM_OFFSETS[3].clone().add(new THREE.Vector3(8.5,0,0)),
+      targetRoom:-1, targetPos:null, locked:true, requires:'lever:wh_dock_lever', isExit:true,
+      frame: makeDoorFrame(ROOM_OFFSETS[3].clone().add(new THREE.Vector3(8.5,0,0)), -Math.PI/2, 0x5a5550) },
+  );
+  scene.add(GS.doors3D[5].frame);
+  scene.add(GS.doors3D[6].frame);
+
+  // Lever mesh in room 3
+  const leverG = new THREE.Group();
+  leverG.add(makeBox(0.05, 0.4, 0.05, MAT.metal, new THREE.Vector3(0, 0.2, 0)));
+  leverG.add(new THREE.Mesh(new THREE.SphereGeometry(0.04), MAT.redLight));
+  leverG.children[1].position.set(0, 0.42, 0);
+  leverG.position.copy(ROOM_OFFSETS[3]).add(new THREE.Vector3(7.5, 1.0, 2));
+  scene.add(leverG);
+}
+
+// ============================================================
+// DUST PARTICLES
+// ============================================================
+function createDustParticles() {
+  const count = 500;
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    positions[i*3] = (Math.random()-0.5)*16;
+    positions[i*3+1] = Math.random()*3.2;
+    positions[i*3+2] = (Math.random()-0.5)*10;
+    sizes[i] = 0.01 + Math.random()*0.02;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+  const mat = new THREE.PointsMaterial({ color: 0xaa9977, size: 0.02, transparent: true, opacity: 0.3, sizeAttenuation: true });
+  GS.dustParticles = new THREE.Points(geo, mat);
+  scene.add(GS.dustParticles);
+}
+
+function updateDustParticles(dt) {
+  if (!GS.dustParticles) return;
+  const pos = GS.dustParticles.geometry.attributes.position;
+  const offset = ROOM_OFFSETS[GS.currentRoom] || ROOM_OFFSETS[0];
+  for (let i = 0; i < pos.count; i++) {
+    pos.array[i*3] += Math.sin(GS.time*0.3 + i) * 0.001;
+    pos.array[i*3+1] += Math.sin(GS.time*0.5 + i*0.7) * 0.0005;
+    pos.array[i*3+2] += Math.cos(GS.time*0.4 + i*0.3) * 0.001;
+  }
+  GS.dustParticles.position.copy(offset);
+  pos.needsUpdate = true;
+}
+
+// ============================================================
+// MONSTER
+// ============================================================
+function createMonster() {
+  GS.monster.mesh = makeToyFigure(new THREE.Vector3(0, 0, 0), 1.3);
+  GS.monster.mesh.visible = false;
+  scene.add(GS.monster.mesh);
+}
+
+function updateMonster(dt) {
+  if (!GS.monster.active || !GS.monster.mesh) return;
+  const m = GS.monster;
+  const pPos = camera.position.clone();
+  const mPos = m.mesh.position;
+  const dist = pPos.distanceTo(mPos);
+
+  if (m.state === 'idle') {
+    m.chaseTimer -= dt;
+    m.mesh.visible = false;
+    if (m.chaseTimer <= 0) {
+      m.state = 'stalking';
+      m.mesh.visible = true;
+      m.chaseTimer = 8 + Math.random()*5;
+      playCreak();
+    }
+  } else if (m.state === 'stalking') {
+    m.mesh.visible = true;
+    const dir = pPos.clone().sub(mPos).normalize();
+    mPos.add(dir.multiplyScalar(m.speed * 0.4 * dt));
+    m.mesh.lookAt(pPos.x, mPos.y, pPos.z);
+    m.chaseTimer -= dt;
+    if (dist < 8) {
+      m.state = 'chasing';
+      m.chaseTimer = 6;
+      grainPass.uniforms.intensity.value = 0.15;
+    }
+    if (m.chaseTimer <= 0) {
+      m.state = 'idle';
+      m.chaseTimer = 5 + Math.random()*8;
+      respawnMonster();
+    }
+  } else if (m.state === 'chasing') {
+    m.mesh.visible = true;
+    const dir = pPos.clone().sub(mPos).normalize();
+    mPos.add(dir.multiplyScalar(m.speed * 1.5 * dt));
+    m.mesh.lookAt(pPos.x, mPos.y, pPos.z);
+    m.chaseTimer -= dt;
+    if (dist < 1.2) triggerJumpscareEvent();
+    if (m.chaseTimer <= 0 || dist > 20) {
+      m.state = 'idle';
+      m.chaseTimer = 8 + Math.random()*10;
+      respawnMonster();
+      grainPass.uniforms.intensity.value = 0.08;
+    }
+    if (Math.random() < 0.02) playTone(80,0.5,'sawtooth',0.04);
+    bloomPass.strength = 0.3 + Math.sin(GS.time*8)*0.1;
+  }
+
+  if (m.state !== 'chasing') {
+    bloomPass.strength += (0.3 - bloomPass.strength) * 0.02;
+    grainPass.uniforms.intensity.value += (0.08 - grainPass.uniforms.intensity.value) * 0.02;
+  }
+}
+
+function respawnMonster() {
+  const off = ROOM_OFFSETS[GS.currentRoom];
+  GS.monster.mesh.position.set(
+    off.x + (Math.random()-0.5)*12,
+    0,
+    off.z + (Math.random()-0.5)*8
+  );
+}
+
+function activateMonster() {
+  GS.monster.active = true;
+  GS.monster.state = 'idle';
+  GS.monster.chaseTimer = 5 + Math.random()*5;
+  respawnMonster();
+  showDialogue('Something stirs in the darkness. You are not alone.');
+}
+
+function triggerJumpscareEvent() {
+  playJumpscare();
+  bloomPass.strength = 2;
+  grainPass.uniforms.intensity.value = 0.5;
+  GS.monster.state = 'idle';
+  GS.monster.mesh.visible = false;
+  GS.monster.chaseTimer = 12 + Math.random()*8;
+  respawnMonster();
+  const off = ROOM_OFFSETS[GS.currentRoom];
+  const roomDef = ROOM_DEFS[GS.currentRoom];
+  camera.position.set(off.x + roomDef.spawnX, 1.7, off.z + roomDef.spawnZ);
+  showDialogue('You black out for a moment... When you come to, you\'re back where you started. That thing is still out there.');
+}
+
+// ============================================================
+// ROOM DEFINITIONS (metadata)
+// ============================================================
+const ROOM_DEFS = [
+  { name:'ENTRANCE LOBBY', objective:'Find the keycard to the Production Floor', spawnX:0, spawnZ:0 },
+  { name:'PRODUCTION FLOOR', objective:'Restore power to the assembly line', spawnX:-4.5, spawnZ:0 },
+  { name:'TESTING LABORATORY', objective:'Find the master key in the safe', spawnX:-4, spawnZ:0 },
+  { name:'WAREHOUSE - SHIPPING', objective:'Escape through the loading dock', spawnX:-6, spawnZ:0, monsterActive:true },
+];
+
+// ============================================================
+// PLAYER MOVEMENT
+// ============================================================
+const moveSpeed = 5;
+const sprintMultiplier = 1.6;
+
+function updateMovement(dt) {
+  if (!controls.isLocked || GS.paused) return;
+  const speed = GS.isSprinting ? moveSpeed * sprintMultiplier : moveSpeed;
+  const dir = new THREE.Vector3();
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  forward.y = 0; forward.normalize();
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
+
+  if (GS.moveForward) dir.add(forward);
+  if (GS.moveBackward) dir.sub(forward);
+  if (GS.moveRight) dir.add(right);
+  if (GS.moveLeft) dir.sub(right);
+
+  if (dir.length() > 0) {
+    dir.normalize();
+    const newPos = camera.position.clone().add(dir.clone().multiplyScalar(speed * dt));
+    // Simple room bounds collision
+    const off = ROOM_OFFSETS[GS.currentRoom];
+    const roomW = [10,14,12,18][GS.currentRoom] || 10;
+    const roomD = [6,8,8,10][GS.currentRoom] || 6;
+    const margin = 0.4;
+    newPos.x = Math.max(off.x - roomW/2 + margin, Math.min(off.x + roomW/2 - margin, newPos.x));
+    newPos.z = Math.max(off.z - roomD/2 + margin, Math.min(off.z + roomD/2 - margin, newPos.z));
+    newPos.y = 1.7;
+    camera.position.copy(newPos);
+
+    GS.footstepTimer -= dt;
+    if (GS.footstepTimer <= 0) {
+      playFootstep();
+      GS.footstepTimer = GS.isSprinting ? 0.28 : 0.38;
+    }
+    // Head bob
+    camera.position.y = 1.7 + Math.sin(GS.time * (GS.isSprinting ? 14 : 10)) * 0.03;
+  }
+
+  // Flashlight target
+  const flDir = new THREE.Vector3();
+  camera.getWorldDirection(flDir);
+  flTarget.position.copy(camera.position).add(flDir.multiplyScalar(10));
+}
+
+// ============================================================
+// INTERACTION
+// ============================================================
+const raycaster = new THREE.Raycaster();
+
+function updateInteraction() {
+  if (!controls.isLocked || GS.paused) return;
+  const pPos = camera.position;
+  let nearest = null, nearDist = 3;
+
+  GS.interactables3D.forEach(inter => {
+    if (inter.roomIdx !== GS.currentRoom) return;
+    if (GS.itemsCollected.has(inter.id)) return;
+    const d = pPos.distanceTo(inter.pos);
+    if (d < inter.radius && d < nearDist) { nearDist = d; nearest = inter; }
+  });
+
+  GS.doors3D.forEach(door => {
+    if (door.roomIdx !== GS.currentRoom) return;
+    const d = pPos.distanceTo(door.pos);
+    if (d < 2.5 && d < nearDist) { nearDist = d; nearest = { ...door, type:'door' }; }
+  });
+
+  GS.nearInteractable = nearest;
+  const prompt = document.getElementById('interact-prompt');
+  if (nearest) {
+    prompt.style.opacity = '1';
+    if (nearest.type === 'door') {
+      const unlocked = GS.doorsUnlocked.has(nearest.id) || !nearest.locked;
+      prompt.textContent = unlocked ? '[E] Enter' : `[E] Locked - Requires ${(nearest.requires||'').replace(/_/g,' ')}`;
+    } else if (nearest.type === 'note') prompt.textContent = '[E] Read Note';
+    else if (nearest.type === 'container') prompt.textContent = `[E] Open ${nearest.label||'Container'}`;
+    else if (nearest.type === 'puzzle') prompt.textContent = GS.puzzlesSolved.has(nearest.id) ? '[Solved]' : `[E] ${nearest.label||'Interact'}`;
+    else if (nearest.type === 'examine') prompt.textContent = '[E] Examine';
+    else if (nearest.type === 'lever') {
+      const canUse = !nearest.requires || GS.puzzlesSolved.has(nearest.requires.replace('puzzle:',''));
+      prompt.textContent = canUse ? '[E] Pull Lever' : '[E] Requires power';
+    }
+  } else prompt.style.opacity = '0';
+}
+
+function handleInteraction() {
+  if (GS.paused || GS.puzzleActive || GS.dialogue.active) return;
+  const inter = GS.nearInteractable;
+  if (!inter) return;
+  playInteract();
+
+  if (inter.type === 'door') {
+    const unlocked = GS.doorsUnlocked.has(inter.id) || !inter.locked;
+    if (unlocked) {
+      if (inter.isExit) { showVictory(); return; }
+      playDoorOpen();
+      GS.currentRoom = inter.targetRoom;
+      camera.position.copy(inter.targetPos);
+      const rd = ROOM_DEFS[GS.currentRoom];
+      document.getElementById('room-name').textContent = rd.name;
+      document.getElementById('objective').textContent = rd.objective;
+      if (rd.monsterActive && !GS.monster.active) activateMonster();
+    } else {
+      const req = inter.requires;
+      if (req && req.startsWith('puzzle:')) {
+        if (GS.puzzlesSolved.has(req.replace('puzzle:',''))) { GS.doorsUnlocked.add(inter.id); playDoorOpen(); }
+        else { showDialogue('The door won\'t budge. Something needs to be activated first.'); playError(); }
+      } else if (req && req.startsWith('lever:')) {
+        if (GS.itemsCollected.has(req.replace('lever:','')+'_used')) { GS.doorsUnlocked.add(inter.id); playDoorOpen(); }
+        else { showDialogue('The loading dock door is sealed shut. The lever might open it.'); playError(); }
+      } else {
+        if (GS.inventory.some(s => s && s.id === req)) {
+          GS.doorsUnlocked.add(inter.id); removeInventoryItem(req); playDoorOpen(); showDialogue('The door clicks open.');
+        } else { showDialogue(`This door is locked. You need: ${(req||'').replace(/_/g,' ')}`); playError(); }
+      }
+    }
+  } else if (inter.type === 'note') { showDialogue(inter.text); GS.notesRead.add(inter.id); }
+  else if (inter.type === 'examine') showDialogue(inter.text);
+  else if (inter.type === 'container') {
+    if (inter.contains && !GS.itemsCollected.has(inter.id)) {
+      addInventoryItem(inter.contains, inter.contains.replace(/_/g,' '));
+      GS.itemsCollected.add(inter.id);
+      showDialogue(`Found: ${inter.contains.replace(/_/g,' ').toUpperCase()}`);
+      playPuzzleSolve();
+    } else showDialogue('Empty.');
+  } else if (inter.type === 'puzzle') {
+    if (!GS.puzzlesSolved.has(inter.id)) openPuzzle(inter);
+  } else if (inter.type === 'lever') {
+    const canUse = !inter.requires || GS.puzzlesSolved.has(inter.requires.replace('puzzle:',''));
+    if (canUse) {
+      GS.itemsCollected.add(inter.id+'_used');
+      GS.doors3D.forEach(d => { if (d.requires === 'lever:'+inter.id) GS.doorsUnlocked.add(d.id); });
+      showDialogue('The lever groans as you pull it down. Machinery rumbles to life. The loading dock door begins to rise.');
+      playDoorOpen(); playPuzzleSolve();
+    } else { showDialogue('The lever won\'t move. No power.'); playError(); }
+  }
+}
+
+// ============================================================
+// INVENTORY
+// ============================================================
+function addInventoryItem(id, name) {
+  for (let i=0;i<GS.inventory.length;i++) { if(!GS.inventory[i]){ GS.inventory[i]={id,name}; updateInventoryUI(); return true; } } return false;
+}
+function removeInventoryItem(id) {
+  for (let i=0;i<GS.inventory.length;i++) { if(GS.inventory[i]&&GS.inventory[i].id===id){ GS.inventory[i]=null; updateInventoryUI(); return true; } } return false;
+}
+function updateInventoryUI() {
+  const icons = { keycard_production:'🔑', wrench:'🔧', master_key:'🗝️', fuse:'⚡', battery:'🔋' };
+  for(let i=0;i<5;i++){
+    const s=document.getElementById(`inv-${i}`);
+    s.className='inv-slot'+(i===GS.selectedSlot?' active':'');
+    const item=GS.inventory[i];
+    s.innerHTML=item?`${icons[item.id]||'📦'}<span class="lbl">${item.name}</span>`:'';
+  }
+}
+
+// ============================================================
+// DIALOGUE
+// ============================================================
+function showDialogue(text, cb) {
+  GS.dialogue = { active:true, fullText:text, text:'', charIndex:0, timer:0, callback:cb };
+  document.getElementById('dialogue-box').style.display = 'block';
+}
+function updateDialogue(dt) {
+  if (!GS.dialogue.active) return;
+  GS.dialogue.timer += dt;
+  if (GS.dialogue.charIndex < GS.dialogue.fullText.length) {
+    if (GS.dialogue.timer > 0.02) {
+      GS.dialogue.charIndex++;
+      GS.dialogue.text = GS.dialogue.fullText.substring(0, GS.dialogue.charIndex);
+      GS.dialogue.timer = 0;
+      document.getElementById('dialogue-box').textContent = GS.dialogue.text + (GS.dialogue.charIndex < GS.dialogue.fullText.length ? '▌' : '');
+      if (GS.dialogue.charIndex % 3 === 0) playTone(300+Math.random()*100,0.03,'sine',0.015);
+    }
+  } else {
+    if (GS.dialogue.timer > 3) {
+      GS.dialogue.active = false;
+      document.getElementById('dialogue-box').style.display = 'none';
+      if (GS.dialogue.callback) GS.dialogue.callback();
+    }
+  }
+}
+
+// ============================================================
+// PUZZLES
+// ============================================================
+function openPuzzle(inter) {
+  GS.puzzleActive = true; GS.currentPuzzle = inter; GS.paused = true;
+  controls.unlock();
+  document.getElementById('puzzle-overlay').style.display = 'flex';
+  document.getElementById('puzzle-title').textContent = inter.label || 'PUZZLE';
+  if (inter.puzzleType === 'wire') buildWirePuzzle();
+  else if (inter.puzzleType === 'symbol') buildSymbolPuzzle();
+  else if (inter.puzzleType === 'pipe') buildPipePuzzle();
+}
+function closePuzzle() {
+  if (!GS.puzzleActive) return;
+  GS.puzzleActive = false; GS.paused = false;
+  document.getElementById('puzzle-overlay').style.display = 'none';
+  document.getElementById('puzzle-content').innerHTML = '';
+  document.body.requestPointerLock();
+}
+document.getElementById('puzzle-close').addEventListener('click', closePuzzle);
+
+function buildWirePuzzle() {
+  const content = document.getElementById('puzzle-content');
+  const colors = ['#c44','#44c','#4c4','#cc4'];
+  const shuffled = [...colors].sort(()=>Math.random()-0.5);
+  let html = `<div style="color:#887;margin-bottom:15px;font-size:.85em">Connect matching colored wires. Click left, then matching right.</div>`;
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;height:200px">`;
+  html += `<div style="display:flex;flex-direction:column;gap:15px">`;
+  colors.forEach((c,i)=>{ html+=`<div class="wl" data-color="${c}" data-idx="${i}" style="width:40px;height:30px;background:${c};cursor:pointer;border:2px solid transparent;border-radius:4px" onclick="window._selectWire(this,'left')"></div>`; });
+  html += `</div><canvas id="wire-canvas" width="300" height="200" style="flex:1;margin:0 20px"></canvas><div style="display:flex;flex-direction:column;gap:15px">`;
+  shuffled.forEach((c,i)=>{ html+=`<div class="wr" data-color="${c}" data-idx="${i}" style="width:40px;height:30px;background:${c};cursor:pointer;border:2px solid transparent;border-radius:4px" onclick="window._selectWire(this,'right')"></div>`; });
+  html += `</div></div>`;
+  content.innerHTML = html;
+  window._ws = { sel:null, conns:[], target:colors.length };
+}
+window._selectWire = function(el, side) {
+  const ws = window._ws; if(!ws) return;
+  if (!ws.sel) { if(side==='left'){ ws.sel={side,color:el.dataset.color,idx:el.dataset.idx,el}; el.style.border='2px solid #fff'; playTone(400,.1,'sine',.05); } }
+  else {
+    if (side==='right'&&ws.sel.side==='left') {
+      if (ws.sel.color===el.dataset.color) {
+        ws.conns.push({left:ws.sel.idx,right:el.dataset.idx,color:ws.sel.color});
+        ws.sel.el.style.opacity='.4'; ws.sel.el.style.pointerEvents='none';
+        el.style.opacity='.4'; el.style.pointerEvents='none';
+        ws.sel.el.style.border='2px solid transparent';
+        playTone(600,.15,'sine',.06);
+        const cv=document.getElementById('wire-canvas'); if(cv){ const x=cv.getContext('2d'); x.clearRect(0,0,300,200);
+          ws.conns.forEach(c=>{ const ly=15+parseInt(c.left)*45,ry=15+parseInt(c.right)*45; x.strokeStyle=c.color; x.lineWidth=3; x.beginPath(); x.moveTo(0,ly); x.bezierCurveTo(100,ly,200,ry,300,ry); x.stroke(); });
+        }
+        if(ws.conns.length>=ws.target) setTimeout(()=>solvePuzzle(GS.currentPuzzle),500);
+      } else { ws.sel.el.style.border='2px solid transparent'; playError(); }
+      ws.sel=null;
+    } else { if(ws.sel.el) ws.sel.el.style.border='2px solid transparent'; ws.sel=null; }
+  }
+};
+
+function buildSymbolPuzzle() {
+  const content = document.getElementById('puzzle-content');
+  const symbols=['◆','▲','●','■','★','◇','▼','○'];
+  const code=[symbols[2],symbols[0],symbols[4],symbols[1]];
+  let html=`<div style="color:#887;margin-bottom:15px;font-size:.85em">Enter the correct 4-symbol combination. Hint: ● ◆ ★ ▲</div>`;
+  html+=`<div id="sym-display" style="display:flex;gap:10px;justify-content:center;margin:20px 0">`;
+  for(let i=0;i<4;i++) html+=`<div id="sym-${i}" style="width:50px;height:50px;border:1px solid #3a3530;display:flex;align-items:center;justify-content:center;font-size:1.8em;color:#aa9;background:#1a1816"></div>`;
+  html+=`</div><div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:15px">`;
+  symbols.forEach(s=>{ html+=`<div style="width:45px;height:45px;border:1px solid #3a3530;display:flex;align-items:center;justify-content:center;font-size:1.5em;color:#aa9;cursor:pointer;background:#1a1816" onmouseover="this.style.borderColor='#c44'" onmouseout="this.style.borderColor='#3a3530'" onclick="window._addSym('${s}')">${s}</div>`; });
+  html+=`</div><div style="text-align:center;margin-top:15px"><span style="color:#665;cursor:pointer;font-size:.85em" onclick="window._clearSym()">[ CLEAR ]</span></div>`;
+  content.innerHTML=html;
+  window._ss={entered:[],code};
+}
+window._addSym=function(s){
+  const ss=window._ss; if(ss.entered.length>=4) return;
+  ss.entered.push(s); document.getElementById(`sym-${ss.entered.length-1}`).textContent=s;
+  playTone(300+ss.entered.length*100,.1,'sine',.05);
+  if(ss.entered.length===4){ if(ss.entered.every((v,i)=>v===ss.code[i])) setTimeout(()=>solvePuzzle(GS.currentPuzzle),500);
+    else{ playError(); setTimeout(()=>window._clearSym(),800); } }
+};
+window._clearSym=function(){ window._ss.entered=[]; for(let i=0;i<4;i++) document.getElementById(`sym-${i}`).textContent=''; };
+
+function buildPipePuzzle() {
+  const content=document.getElementById('puzzle-content');
+  const grid=5, types=['straight','corner','tee','straight','corner'];
+  const solution=[0,1,0,1,0];
+  const rotations=solution.map(()=>Math.floor(Math.random()*4));
+  let html=`<div style="color:#887;margin-bottom:15px;font-size:.85em">Rotate pipe segments to connect fuel line left to right. Click to rotate.</div>`;
+  html+=`<div style="display:flex;align-items:center;justify-content:center;gap:0">`;
+  html+=`<div style="width:20px;height:4px;background:#4c4;margin-right:-1px"></div>`;
+  html+=`<div id="pipe-grid" style="display:grid;grid-template-columns:repeat(${grid},50px);gap:2px">`;
+  for(let i=0;i<grid;i++) html+=`<div style="width:50px;height:50px;border:1px solid #2a2520;background:#1a1816;cursor:pointer" onclick="window._rotPipe(${i})"><canvas id="pipe-${i}" width="50" height="50"></canvas></div>`;
+  html+=`</div><div style="width:20px;height:4px;background:#4c4;margin-left:-1px"></div></div>`;
+  content.innerHTML=html;
+  window._ps={rotations,types,solution,grid};
+  for(let i=0;i<grid;i++) drawPipeCell(i);
+}
+function drawPipeCell(idx){
+  const cv=document.getElementById(`pipe-${idx}`); if(!cv) return;
+  const x=cv.getContext('2d'), ps=window._ps, rot=ps.rotations[idx], type=ps.types[idx];
+  x.clearRect(0,0,50,50); x.save(); x.translate(25,25); x.rotate(rot*Math.PI/2);
+  x.strokeStyle='#6a8060'; x.lineWidth=6; x.lineCap='round';
+  if(type==='straight'){ x.beginPath(); x.moveTo(-25,0); x.lineTo(25,0); x.stroke(); }
+  else if(type==='corner'){ x.beginPath(); x.moveTo(-25,0); x.lineTo(0,0); x.lineTo(0,-25); x.stroke(); }
+  else if(type==='tee'){ x.beginPath(); x.moveTo(-25,0); x.lineTo(25,0); x.stroke(); x.beginPath(); x.moveTo(0,0); x.lineTo(0,-25); x.stroke(); }
+  x.restore();
+}
+window._rotPipe=function(idx){
+  const ps=window._ps; ps.rotations[idx]=(ps.rotations[idx]+1)%4; drawPipeCell(idx);
+  playTone(200+idx*50,.1,'triangle',.04);
+  if(ps.rotations.every((r,i)=>r%2===ps.solution[i]%2)) setTimeout(()=>solvePuzzle(GS.currentPuzzle),500);
+};
+
+function solvePuzzle(inter) {
+  GS.puzzlesSolved.add(inter.id);
+  playPuzzleSolve(); closePuzzle();
+  bloomPass.strength = 0.8;
+  setTimeout(()=>{ bloomPass.strength=0.3; },500);
+  if (inter.puzzleType==='wire') {
+    showDialogue('The fuse box hums to life. Power restored. The door to the Testing Lab clicks open.');
+    GS.doors3D.forEach(d=>{ if(d.requires==='puzzle:'+inter.id) GS.doorsUnlocked.add(d.id); });
+  } else if (inter.puzzleType==='symbol') {
+    addInventoryItem('master_key','master key');
+    showDialogue('The safe clicks open. Inside: a heavy brass key labeled "MASTER".');
+  } else if (inter.puzzleType==='pipe') {
+    showDialogue('Fuel flows through the pipes. The generator roars to life. Now you can use the dock lever.');
+    GS.doors3D.forEach(d=>{ if(d.requires==='puzzle:'+inter.id) GS.doorsUnlocked.add(d.id); });
+  }
+}
+
+// ============================================================
+// FLASHLIGHT UPDATE
+// ============================================================
+function updateFlashlight(dt) {
+  if (GS.flashlight.on) {
+    GS.flashlight.battery -= dt * 0.8;
+    if (GS.flashlight.battery <= 0) { GS.flashlight.battery = 0; GS.flashlight.on = false; }
+  }
+  flashlight.visible = GS.flashlight.on && GS.flashlight.battery > 0;
+  const pct = GS.flashlight.battery / 100;
+  flashlight.intensity = 3 * pct * (0.9 + Math.sin(GS.time*7+Math.random())*0.1);
+  document.getElementById('battery-fill').style.width = pct*100+'%';
+  document.getElementById('battery-fill').style.background = pct>0.5?'#5a8050':pct>0.2?'#a08030':'#c44';
+}
+
+// ============================================================
+// VICTORY
+// ============================================================
+function showVictory() {
+  GS.paused = true; controls.unlock();
+  bloomPass.strength = 2;
+  setTimeout(()=>{
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Courier New,monospace;';
+    const lines = [
+      {t:'You burst through the loading dock doors into the cold night air.',c:'#aa9',s:'14px'},
+      {t:'',c:'',s:''},
+      {t:'Behind you, the factory groans and shudders.',c:'#887',s:'13px'},
+      {t:'Something watches from the darkness within.',c:'#887',s:'13px'},
+      {t:'',c:'',s:''},
+      {t:'You escaped... but the factory remembers.',c:'#aa9',s:'14px'},
+      {t:'',c:'',s:''},
+      {t:'— PLAYTHING FACTORY —',c:'#c44',s:'20px'},
+      {t:'',c:'',s:''},
+      {t:'Thanks for playing.',c:'#665',s:'12px'},
+      {t:'',c:'',s:''},
+      {t:'[Press R to play again]',c:'#887',s:'11px'},
+    ];
+    lines.forEach(l=>{
+      const p=document.createElement('p');
+      p.textContent=l.t; p.style.cssText=`color:${l.c};font-size:${l.s};margin:6px 0;letter-spacing:.1em`;
+      ov.appendChild(p);
+    });
+    document.body.appendChild(ov);
+    window.addEventListener('keydown',function r(e){ if(e.key.toLowerCase()==='r'){ window.removeEventListener('keydown',r); location.reload(); } });
+  },1500);
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && GS.puzzleActive) { closePuzzle(); return; }
+  switch(e.code) {
+    case 'KeyW': case 'ArrowUp': GS.moveForward=true; break;
+    case 'KeyS': case 'ArrowDown': GS.moveBackward=true; break;
+    case 'KeyA': case 'ArrowLeft': GS.moveLeft=true; break;
+    case 'KeyD': case 'ArrowRight': GS.moveRight=true; break;
+    case 'ShiftLeft': case 'ShiftRight': GS.isSprinting=true; break;
+    case 'KeyE': handleInteraction(); break;
+    case 'KeyF': GS.flashlight.on=!GS.flashlight.on; playTone(GS.flashlight.on?500:300,.1,'sine',.05); break;
+    case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5':
+      GS.selectedSlot=parseInt(e.code.replace('Digit',''))-1; updateInventoryUI(); break;
+  }
+});
+document.addEventListener('keyup', e => {
+  switch(e.code) {
+    case 'KeyW': case 'ArrowUp': GS.moveForward=false; break;
+    case 'KeyS': case 'ArrowDown': GS.moveBackward=false; break;
+    case 'KeyA': case 'ArrowLeft': GS.moveLeft=false; break;
+    case 'KeyD': case 'ArrowRight': GS.moveRight=false; break;
+    case 'ShiftLeft': case 'ShiftRight': GS.isSprinting=false; break;
+  }
+});
+
+// Dismiss dialogue on E
+document.addEventListener('keydown', e => {
+  if (e.code === 'KeyE' && GS.dialogue.active && GS.dialogue.charIndex >= GS.dialogue.fullText.length) {
+    GS.dialogue.active = false;
+    document.getElementById('dialogue-box').style.display = 'none';
+    if (GS.dialogue.callback) GS.dialogue.callback();
+  }
+});
+
+// ============================================================
+// FLICKER LIGHTS UPDATE
+// ============================================================
+function updateFlickerLights() {
+  GS.flickerLights.forEach(fl => {
+    fl.light.intensity = fl.base * (0.7 + Math.sin(GS.time * fl.speed + fl.offset) * 0.3 + Math.random() * 0.05);
+  });
+}
+
+// ============================================================
+// FILM GRAIN CANVAS
+// ============================================================
+const fxC = document.getElementById('fx-canvas');
+const fxCtx = fxC.getContext('2d');
+fxC.width = 256; fxC.height = 256;
+function updateFilmGrain() {
+  const d = fxCtx.createImageData(256, 256);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const v = Math.random() * 255;
+    d.data[i] = d.data[i+1] = d.data[i+2] = v;
+    d.data[i+3] = 20;
+  }
+  fxCtx.putImageData(d, 0, 0);
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  GS.time += dt;
+
+  if (GS.started && !GS.paused) {
+    updateMovement(dt);
+    updateFlashlight(dt);
+    updateInteraction();
+    updateDialogue(dt);
+    updateMonster(dt);
+    updateDustParticles(dt);
+    updateFlickerLights();
+    grainPass.uniforms.time.value = GS.time;
+  }
+
+  if (GS.time % 0.1 < dt) updateFilmGrain();
+
+  composer.render();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+const blocker = document.getElementById('blocker');
+blocker.addEventListener('click', () => {
+  if (!GS.started) {
+    initAudio();
+    buildAllRooms();
+    createDustParticles();
+    createMonster();
+    GS.started = true;
+    const rd = ROOM_DEFS[0];
+    camera.position.set(ROOM_OFFSETS[0].x, 1.7, ROOM_OFFSETS[0].z);
+    document.getElementById('room-name').textContent = rd.name;
+    document.getElementById('objective').textContent = rd.objective;
+    startAmbience();
+    updateInventoryUI();
+    showDialogue('The factory entrance. Abandoned for years, but the lights still flicker. Something isn\'t right here. Look around for clues...');
+  }
+  controls.lock();
+});
+
+controls.addEventListener('lock', () => { blocker.classList.add('hidden'); });
+controls.addEventListener('unlock', () => { if (!GS.puzzleActive && !GS.paused) blocker.classList.remove('hidden'); });
+
+animate();
+</script>
+</body>
+</html>

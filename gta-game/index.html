@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vice Town</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="game-canvas"></canvas>
+
+    <div id="crosshair"></div>
+
+    <!-- Main Menu -->
+    <div id="main-menu">
+        <h1>Vice Town</h1>
+        <div class="subtitle">Open World Crime Sandbox</div>
+        <button id="start-btn">Play</button>
+        <div class="controls-hint">
+            <kbd>WASD</kbd> Move &nbsp; <kbd>Mouse</kbd> Look &nbsp; <kbd>Shift</kbd> Sprint &nbsp; <kbd>Space</kbd> Jump<br>
+            <kbd>F</kbd> Enter/Exit Vehicle &nbsp; <kbd>Click</kbd> Shoot &nbsp; <kbd>1-4</kbd> Switch Weapon<br>
+            <kbd>P</kbd> Pause
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div id="status-panel">
+            <div class="bar-container"><div id="health-fill"></div></div>
+            <div class="bar-container" id="armor-bar"><div id="armor-fill"></div></div>
+            <div id="wanted-stars"></div>
+        </div>
+        <div id="cash">$500</div>
+        <div id="weapon-info">Fists</div>
+        <div id="objective"></div>
+        <div id="speed"></div>
+        <canvas id="minimap" width="180" height="180"></canvas>
+    </div>
+
+    <!-- Click to play hint -->
+    <div id="click-hint" style="display:none; position:fixed; inset:0; z-index:150; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; pointer-events:auto; cursor:pointer;">
+        <div style="text-align:center; color:#fff;">
+            <div style="font-size:36px; font-weight:700; margin-bottom:10px;">Click to Play</div>
+            <div style="font-size:14px; color:#aaa;">Click anywhere to enable mouse control</div>
+        </div>
+    </div>
+
+    <!-- Briefing -->
+    <div id="briefing">
+        <div class="briefing-box">
+            <h2 id="briefing-title"></h2>
+            <p id="briefing-text"></p>
+            <button id="briefing-ok">Got It</button>
+        </div>
+    </div>
+
+    <!-- Death Screen -->
+    <div id="death-screen">
+        <h2>Wasted</h2>
+    </div>
+
+    <!-- Pause Menu -->
+    <div id="pause-menu">
+        <div class="pause-box">
+            <h2>Paused</h2>
+            <button id="resume-btn">Resume</button>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://esm.sh/three@0.162.0"
+        }
+    }
+    </script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

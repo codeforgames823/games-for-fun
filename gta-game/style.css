@@ -1,0 +1,339 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    overflow: hidden;
+    background: #000;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #fff;
+    user-select: none;
+}
+
+#game-canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    cursor: crosshair;
+}
+
+/* Main Menu */
+#main-menu {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0a0a2e 0%, #1a0a3e 50%, #0a1a2e 100%);
+    z-index: 1000;
+}
+
+#main-menu h1 {
+    font-size: 72px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 8px;
+    background: linear-gradient(to bottom, #ff6600, #ff2200);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 4px 20px rgba(255, 68, 0, 0.5));
+    margin-bottom: 10px;
+}
+
+#main-menu .subtitle {
+    font-size: 18px;
+    color: #88aacc;
+    margin-bottom: 50px;
+    letter-spacing: 4px;
+}
+
+#start-btn {
+    padding: 16px 60px;
+    font-size: 22px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    background: linear-gradient(to bottom, #ff6600, #cc3300);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    clip-path: polygon(5% 0%, 100% 0%, 95% 100%, 0% 100%);
+}
+
+#start-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(255, 100, 0, 0.6);
+}
+
+.controls-hint {
+    margin-top: 40px;
+    font-size: 13px;
+    color: #667;
+    text-align: center;
+    line-height: 2;
+}
+
+.controls-hint kbd {
+    background: #333;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-family: monospace;
+    border: 1px solid #555;
+}
+
+/* HUD */
+#hud {
+    display: none;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+}
+
+#hud > * { pointer-events: none; }
+
+/* Top-left: health, armor, wanted */
+#status-panel {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+}
+
+.bar-container {
+    width: 200px;
+    height: 14px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-bottom: 6px;
+    overflow: hidden;
+}
+
+#health-fill {
+    height: 100%;
+    width: 100%;
+    background: #22cc44;
+    transition: width 0.2s;
+}
+
+#armor-bar { display: none; }
+
+#armor-fill {
+    height: 100%;
+    width: 0%;
+    background: #4488ff;
+    transition: width 0.2s;
+}
+
+#wanted-stars {
+    margin-top: 8px;
+    font-size: 22px;
+}
+
+.star { color: #333; text-shadow: 0 0 2px #000; }
+.star.active { color: #ffcc00; text-shadow: 0 0 8px #ff8800; }
+
+/* Top-right: cash */
+#cash {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: 700;
+    color: #44dd44;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+/* Bottom-left: weapon */
+#weapon-info {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    font-size: 18px;
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 8px 16px;
+    border-left: 3px solid #ff6600;
+}
+
+/* Bottom-center: objective */
+#objective {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 16px;
+    font-weight: 500;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 8px 20px;
+    border-radius: 4px;
+    text-align: center;
+    max-width: 400px;
+}
+
+/* Bottom-right: minimap */
+#minimap {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 180px;
+    height: 180px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    background: #111;
+}
+
+/* Speed display */
+#speed {
+    position: absolute;
+    bottom: 210px;
+    right: 20px;
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    display: none;
+}
+
+/* Crosshair */
+#crosshair {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+    z-index: 200;
+    display: none;
+}
+
+#crosshair::before, #crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+#crosshair::before {
+    width: 2px;
+    height: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+#crosshair::after {
+    width: 100%;
+    height: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Briefing overlay */
+#briefing {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 500;
+}
+
+.briefing-box {
+    background: linear-gradient(135deg, #1a1a3a, #2a1a2a);
+    border: 1px solid #ff6600;
+    padding: 30px 40px;
+    max-width: 500px;
+    text-align: center;
+}
+
+.briefing-box h2 {
+    font-size: 28px;
+    color: #ff8800;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.briefing-box p {
+    font-size: 16px;
+    line-height: 1.6;
+    color: #ccc;
+    margin-bottom: 25px;
+}
+
+.briefing-box button {
+    padding: 10px 40px;
+    font-size: 16px;
+    font-weight: 700;
+    background: #ff6600;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.briefing-box button:hover {
+    background: #ff8800;
+}
+
+/* Death screen */
+#death-screen {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(180, 0, 0, 0.4);
+    z-index: 600;
+}
+
+#death-screen h2 {
+    font-size: 64px;
+    color: #ff0000;
+    text-transform: uppercase;
+    letter-spacing: 8px;
+    text-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
+}
+
+/* Pause menu */
+#pause-menu {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 400;
+}
+
+.pause-box {
+    text-align: center;
+}
+
+.pause-box h2 {
+    font-size: 48px;
+    margin-bottom: 30px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+}
+
+#resume-btn {
+    padding: 14px 50px;
+    font-size: 18px;
+    font-weight: 700;
+    background: #ff6600;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+#resume-btn:hover { background: #ff8800; }
