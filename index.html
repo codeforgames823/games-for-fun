@@ -225,12 +225,28 @@ const games = [
     url: '/games/polytrack',
   },
   {
+    title: 'Battle Bots',
+    desc: 'Flip the other bot to win. Vs AI offline, or online 2-player when the API is running.',
+    genre: 'Fighting',
+    icon: '\u{1F916}',
+    color: '#00eaff',
+    url: '/games/battle-bots/index.html',
+  },
+  {
+    title: 'Hot Dog Tycoon',
+    desc: 'Life sim: climb from street cart to boardroom. 3D interiors, careers, stocks, and casino.',
+    genre: 'Simulation',
+    icon: '\u{1F32D}',
+    color: '#f97316',
+    url: '/games/hot-dog-tycoon/index.html',
+  },
+  {
     title: 'Minecraft Web',
     desc: 'Voxel sandbox with block building, mobs, procedural terrain, and optional multiplayer.',
     genre: 'Sandbox',
     icon: '\u{26CF}',
     color: '#22c55e',
-    url: 'http://localhost:5173',
+    url: '/games/minecraft-web/',
   },
 ];
 
@@ -247,7 +263,7 @@ for (const g of games) {
     <span class="genre" style="background:${g.color}18;color:${g.color}">${g.genre}</span>
     <h2>${g.title}</h2>
     <p class="desc">${g.desc}</p>
-    <a class="play-btn" href="${g.url}" style="background:${g.color}" target="${g.url.startsWith('http') ? '_blank' : '_self'}">
+    <a class="play-btn" href="${g.url}" style="background:${g.color}">
       ${playSvg} Play
     </a>
   `;
